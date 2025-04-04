@@ -1,0 +1,196 @@
+/**
+ * Enhanced Sublime Text inspired Prism.js theme
+ * Optimized for tech tutorials and Linux guides
+ */
+
+ code[class*="language-"],
+ pre[class*="language-"] {
+     color: #f8f8f2;
+     background: none;
+     font-family: 'Source Code Pro', Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+     text-align: left;
+     white-space: pre;
+     word-spacing: normal;
+     word-break: normal;
+     word-wrap: normal;
+     line-height: 1.6;
+     -moz-tab-size: 4;
+     -o-tab-size: 4;
+     tab-size: 4;
+     -webkit-hyphens: none;
+     -moz-hyphens: none;
+     -ms-hyphens: none;
+     hyphens: none;
+ }
+ 
+ pre[class*="language-"] {
+     padding: 1.2em;
+     margin: 1em 0;
+     overflow: auto;
+     border-radius: 0.4em;
+     background: #272822;
+     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+     border: 1px solid #3c3c3c;
+     transition: all 0.2s ease;
+ }
+ 
+ pre[class*="language-"]:hover {
+     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
+ }
+ 
+ :not(pre) > code[class*="language-"] {
+     padding: .2em .4em;
+     border-radius: .3em;
+     white-space: pre-wrap;
+     background: #272822;
+     border: 1px solid #3c3c3c;
+ }
+ 
+ .token.comment,
+ .token.prolog,
+ .token.doctype,
+ .token.cdata {
+     color: #75715e;
+ }
+ 
+ .token.punctuation {
+     color: #f8f8f2;
+ }
+ 
+ .token.namespace {
+     opacity: .7;
+ }
+ 
+ .token.property,
+ .token.tag,
+ .token.constant,
+ .token.symbol,
+ .token.deleted {
+     color: #f92672;
+ }
+ 
+ .token.boolean,
+ .token.number {
+     color: #ae81ff;
+ }
+ 
+ .token.selector,
+ .token.attr-name,
+ .token.string,
+ .token.char,
+ .token.builtin,
+ .token.inserted {
+     color: #a6e22e;
+ }
+ 
+ .token.operator,
+ .token.entity,
+ .token.url,
+ .language-css .token.string,
+ .style .token.string,
+ .token.variable {
+     color: #f8f8f2;
+ }
+ 
+ .token.atrule,
+ .token.attr-value,
+ .token.function,
+ .token.class-name {
+     color: #e6db74;
+ }
+ 
+ .token.keyword {
+     color: #66d9ef;
+ }
+ 
+ .token.regex,
+ .token.important {
+     color: #fd971f;
+ }
+ 
+ .token.important,
+ .token.bold {
+     font-weight: bold;
+ }
+ 
+ .token.italic {
+     font-style: italic;
+ }
+ 
+ .token.entity {
+     cursor: help;
+ }
+ 
+ /* Line Numbers */
+ pre[class*="language-"].line-numbers {
+     position: relative;
+     padding-left: 3.8em;
+     counter-reset: linenumber;
+ }
+ 
+ pre[class*="language-"].line-numbers > code {
+     position: relative;
+     white-space: inherit;
+ }
+ 
+ .line-numbers .line-numbers-rows {
+     position: absolute;
+     pointer-events: none;
+     top: 0;
+     font-size: 100%;
+     left: -3.8em;
+     width: 3em;
+     letter-spacing: -1px;
+     border-right: 1px solid #3e3d32;
+     -webkit-user-select: none;
+     -moz-user-select: none;
+     -ms-user-select: none;
+     user-select: none;
+ }
+ 
+ .line-numbers-rows > span {
+     display: block;
+     counter-increment: linenumber;
+ }
+ 
+ .line-numbers-rows > span:before {
+     content: counter(linenumber);
+     color: #6c6b5e;
+     display: block;
+     padding-right: 0.8em;
+     text-align: right;
+ }
+ 
+ /* Command line style - good for Linux tutorials */
+ .command-line-prompt {
+     display: block;
+     float: left;
+     font-size: 100%;
+     letter-spacing: -1px;
+     margin-right: 0.8em;
+     pointer-events: none;
+     user-select: none;
+ }
+ 
+ .command-line-prompt > span:before {
+     color: #999;
+     content: '$';
+     display: block;
+     padding-right: 0.8em;
+ }
+ 
+ /* Root command indicator */
+ .command-line-prompt > span[data-user="root"]:before {
+     content: '#';
+     color: #e06c75;
+ }
+ 
+ /* Highlight for important code sections */
+ .highlight-line {
+     background-color: rgba(255, 255, 100, 0.07);
+     border-left: 3px solid #f1c40f;
+     display: block;
+     margin-left: -1.2em;
+     margin-right: -1.2em;
+     padding-left: 1.2em;
+ }
