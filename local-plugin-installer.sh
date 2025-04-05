@@ -1,6 +1,6 @@
 #!/bin/bash
-# Local WordPress Plugin Installer
-# Created: 2025-04-04
+# Dynamic WordPress Plugin Installer
+# Created: 2025-04-05
 # Author: LESdylan
 
 # Text colors for better readability
@@ -10,15 +10,18 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Get current date and user
+CURRENT_DATE=$(date +"%Y-%m-%d %H:%M:%S")
+CURRENT_USER=$(whoami)
+
 echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}    Local WordPress Plugin Installer    ${NC}"
+echo -e "${BLUE}    Dynamic WordPress Plugin Installer    ${NC}"
 echo -e "${BLUE}================================================${NC}"
-echo -e "Date: 2025-04-04"
-echo -e "User: LESdylan"
+echo -e "Date: $CURRENT_DATE"
+echo -e "User: $CURRENT_USER"
 echo ""
 
-echo -e "${YELLOW}This script will help you install your plugin to a local WordPress installation.${NC}"
-echo -e "${YELLOW}No FTP needed for local development!${NC}"
+echo -e "${YELLOW}This script will install any WordPress plugin to your local WordPress installation.${NC}"
 echo ""
 
 # Function to check if a directory exists and contains WordPress
@@ -30,9 +33,19 @@ is_wordpress_dir() {
     fi
 }
 
+# Function to check if a directory looks like a WordPress plugin
+is_plugin_dir() {
+    # Check if any PHP file contains Plugin Name: in the directory
+    if grep -r "Plugin Name:" "$1"/*.php >/dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # First, try to locate WordPress installation
 echo -e "${BLUE}Step 1: Locating your WordPress installation${NC}"
-echo -e "Let's find where WordPress is installed on your system."
+echo -e "Searching for WordPress on your system..."
 echo ""
 
 # Common local WordPress installation locations
@@ -89,42 +102,35 @@ if [ "$WORDPRESS_FOUND" = false ]; then
         echo -e "${GREEN}✓ WordPress verified at: $WORDPRESS_PATH${NC}"
     else
         echo -e "${RED}This directory doesn't appear to contain WordPress.${NC}"
-        echo -e "You should check your local server configuration to find where"
-        echo -e "WordPress is installed and run this script again."
-        echo ""
-        echo -e "Possible places to look:"
-        echo -e "- If using XAMPP: /opt/lampp/htdocs or C:\\xampp\\htdocs"
-        echo -e "- If using MAMP: /Applications/MAMP/htdocs or C:\\MAMP\\htdocs"
-        echo -e "- If using Local by Flywheel: ~/Local Sites/"
+        echo -e "Please check your server configuration and try again."
         exit 1
     fi
 fi
 
 echo ""
 echo -e "${BLUE}Step 2: Locate your plugin folder${NC}"
-echo -e "Now, let's find your 'tech-blog-toolkit' plugin folder."
+echo -e "Enter the full path to your plugin folder:"
+read -p "> " PLUGIN_PATH
 
-# Check if plugin is in current directory
-CURRENT_DIR=$(pwd)
-PLUGIN_NAME="tech-blog-toolkit"
+if [ ! -d "$PLUGIN_PATH" ]; then
+    echo -e "${RED}Error: The specified directory doesn't exist.${NC}"
+    exit 1
+fi
 
-if [ -d "$CURRENT_DIR/$PLUGIN_NAME" ]; then
-    PLUGIN_PATH="$CURRENT_DIR/$PLUGIN_NAME"
-    echo -e "${GREEN}✓ Plugin found at: $PLUGIN_PATH${NC}"
-else
-    echo -e "${YELLOW}Plugin not found in current directory.${NC}"
-    echo -e "Please enter the full path to your '$PLUGIN_NAME' folder:"
-    read -p "> " PLUGIN_PATH
+# Get plugin name from directory name
+PLUGIN_NAME=$(basename "$PLUGIN_PATH")
+echo -e "Plugin name detected as: ${YELLOW}$PLUGIN_NAME${NC}"
+
+# Verify it's a WordPress plugin (basic check)
+if ! is_plugin_dir "$PLUGIN_PATH"; then
+    echo -e "${YELLOW}Warning: This doesn't look like a standard WordPress plugin.${NC}"
+    echo -e "The folder should contain PHP files with a 'Plugin Name:' header."
+    echo -e "Do you want to continue anyway? (y/n)"
+    read -p "> " CONTINUE
     
-    if [ ! -d "$PLUGIN_PATH" ]; then
-        echo -e "${RED}Error: The specified plugin directory doesn't exist.${NC}"
-        exit 1
-    fi
-    
-    # Verify it's a WordPress plugin (basic check)
-    if [ ! -f "$PLUGIN_PATH/$PLUGIN_NAME.php" ] && [ ! -f "$PLUGIN_PATH/index.php" ]; then
-        echo -e "${YELLOW}Warning: This doesn't look like a WordPress plugin.${NC}"
-        echo -e "Continuing anyway, but please verify the folder structure."
+    if [[ "$CONTINUE" != "y" && "$CONTINUE" != "Y" ]]; then
+        echo -e "${YELLOW}Installation cancelled.${NC}"
+        exit 0
     fi
 fi
 
@@ -141,7 +147,7 @@ fi
 
 # Check if plugin already exists at destination and remove if necessary
 if [ -d "$WP_PLUGINS_DIR/$PLUGIN_NAME" ]; then
-    echo -e "${YELLOW}Plugin already exists in WordPress plugins directory.${NC}"
+    echo -e "${YELLOW}Plugin '$PLUGIN_NAME' already exists in WordPress plugins directory.${NC}"
     read -p "Do you want to replace it? (y/n): " REPLACE
     
     if [[ "$REPLACE" == "y" || "$REPLACE" == "Y" ]]; then
@@ -158,9 +164,10 @@ echo -e "Copying plugin to WordPress plugins directory..."
 cp -r "$PLUGIN_PATH" "$WP_PLUGINS_DIR/"
 
 if [ $? -eq 0 ]; then
-    echo -e "${GREEN}✓ Plugin installed successfully to: $WP_PLUGINS_DIR/$PLUGIN_NAME${NC}"
+    echo -e "${GREEN}✓ Plugin '$PLUGIN_NAME' installed successfully to: $WP_PLUGINS_DIR/$PLUGIN_NAME${NC}"
     
     # Set proper permissions
+    echo -e "Setting proper permissions..."
     chmod -R 755 "$WP_PLUGINS_DIR/$PLUGIN_NAME"
     
     # Find the URL to access WordPress admin
@@ -178,21 +185,14 @@ if [ $? -eq 0 ]; then
         echo -e "1. Access your WordPress admin (usually http://localhost/wp-admin or similar)"
     fi
     echo -e "2. Go to Plugins → Installed Plugins"
-    echo -e "3. Find 'Tech Blog Toolkit' and click 'Activate'"
-    echo -e "4. Start using your plugin's features!"
+    echo -e "3. Find '$PLUGIN_NAME' and click 'Activate'"
+    echo -e "4. Start using your plugin!"
 else
     echo -e "${RED}Failed to copy plugin to WordPress plugins directory.${NC}"
-    echo -e "Please check permissions and try again."
+    echo -e "Please check permissions and try again. You might need to run with sudo:"
+    echo -e "sudo $0"
     exit 1
 fi
 
-echo ""
-echo -e "${BLUE}=== Understanding Local WordPress Development ===${NC}"
-echo -e "${YELLOW}Quick Guide:${NC}"
-echo -e "• Your WordPress files are stored locally on your computer"
-echo -e "• You access your site through a local server (like XAMPP, MAMP, Local by Flywheel)"
-echo -e "• For local development, you don't need FTP - just copy files directly"
-echo -e "• Your site is typically accessed at http://localhost or a similar local URL"
-echo -e "• Changes you make to files in $WP_PLUGINS_DIR are immediately available"
 echo ""
 echo -e "${GREEN}Installation complete!${NC}"
