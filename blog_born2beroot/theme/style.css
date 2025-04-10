@@ -1,0 +1,15 @@
+/*
+Theme Name: Sublime Tech
+Theme URI: https://example.com/sublime-tech-theme
+Author: LESdylan
+Author URI: https://example.com
+Description: A dark, Sublime Text-inspired theme for technical blogs
+Version: 1.0.0
+License: GNU General Public License v2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: sublime-tech
+Tags: dark, black, code, sublime, responsive, two-columns, custom-menu
+*/
+
+/* Import the main stylesheet */
+@import url('assets/css/sublime-dark.css');

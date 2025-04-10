@@ -1,0 +1,460 @@
+/* Sublime Text Inspired Theme for WordPress */
+
+:root {
+    /* Sublime Text Monokai Color Palette */
+    --sublime-bg: #272822;
+    --sublime-panel: #1e1f1c;
+    --sublime-text: #f8f8f2;
+    --sublime-comment: #75715e;
+    --sublime-yellow: #e6db74;
+    --sublime-orange: #fd971f;
+    --sublime-red: #f92672;
+    --sublime-purple: #ae81ff;
+    --sublime-blue: #66d9ef;
+    --sublime-green: #a6e22e;
+    --sublime-light-bg: #3e3d32;
+    --sublime-line-highlight: #3e3d32;
+    --sublime-border: #75715e;
+}
+
+/* General Body Styling */
+body {
+    background-color: var(--sublime-bg);
+    color: var(--sublime-text);
+    font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    background-image: url('../images/background.png');
+    background-position: center;
+    background-size: cover;
+    background-attachment: fixed;
+}
+
+/* Layout */
+.site {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.site-header {
+    background-color: var(--sublime-panel);
+    padding: 20px 0;
+    border-bottom: 1px solid var(--sublime-border);
+}
+
+.site-branding {
+    display: flex;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.site-title {
+    font-size: 28px;
+    margin: 0;
+}
+
+.site-title a {
+    color: var(--sublime-blue);
+    text-decoration: none;
+}
+
+.site-description {
+    color: var(--sublime-comment);
+    margin: 0 0 0 15px;
+    font-size: 14px;
+}
+
+/* Navigation */
+.main-navigation {
+    background-color: var(--sublime-panel);
+}
+
+.main-navigation ul {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.main-navigation li {
+    position: relative;
+    padding: 10px 20px;
+}
+
+.main-navigation a {
+    color: var(--sublime-text);
+    text-decoration: none;
+    font-size: 16px;
+    transition: color 0.3s;
+}
+
+.main-navigation a:hover {
+    color: var(--sublime-yellow);
+}
+
+.main-navigation .current-menu-item > a {
+    color: var(--sublime-orange);
+}
+
+/* Content Area */
+.site-content {
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 1200px;
+    margin: 40px auto;
+    padding: 0 20px;
+    flex: 1;
+}
+
+.content-area {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar {
+    width: 300px;
+    margin-left: 40px;
+}
+
+/* Posts and Pages */
+.entry-header {
+    margin-bottom: 30px;
+}
+
+.entry-title {
+    color: var(--sublime-red);
+    font-size: 32px;
+    margin: 0 0 20px;
+}
+
+.entry-title a {
+    color: var(--sublime-blue);
+    text-decoration: none;
+}
+
+.entry-title a:hover {
+    color: var(--sublime-green);
+}
+
+.entry-meta {
+    color: var(--sublime-comment);
+    font-size: 14px;
+    margin-bottom: 20px;
+}
+
+.entry-meta a {
+    color: var(--sublime-orange);
+    text-decoration: none;
+}
+
+.entry-content {
+    margin-bottom: 40px;
+}
+
+.entry-content p {
+    margin-bottom: 20px;
+}
+
+.entry-content h1, .entry-content h2, .entry-content h3, 
+.entry-content h4, .entry-content h5, .entry-content h6 {
+    color: var(--sublime-blue);
+    margin-top: 40px;
+    margin-bottom: 20px;
+}
+
+.entry-content a {
+    color: var(--sublime-orange);
+    text-decoration: none;
+    border-bottom: 1px solid var(--sublime-orange);
+    transition: color 0.3s, border-color 0.3s;
+}
+
+.entry-content a:hover {
+    color: var(--sublime-green);
+    border-color: var(--sublime-green);
+}
+
+.entry-content ul, .entry-content ol {
+    margin-left: 40px;
+    margin-bottom: 20px;
+}
+
+.entry-content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 30px 0;
+    border: 1px solid var(--sublime-border);
+    border-radius: 4px;
+}
+
+/* Tutorial Specific Styling */
+.tutorial-single .tutorial-meta {
+    background-color: var(--sublime-light-bg);
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.tutorial-difficulty {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.tutorial-difficulty.beginner {
+    background-color: var(--sublime-green);
+    color: var(--sublime-bg);
+}
+
+.tutorial-difficulty.intermediate {
+    background-color: var(--sublime-orange);
+    color: var(--sublime-bg);
+}
+
+.tutorial-difficulty.advanced {
+    background-color: var(--sublime-red);
+    color: var(--sublime-bg);
+}
+
+.tutorial-time {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--sublime-text);
+}
+
+.tutorial-prerequisites {
+    background-color: var(--sublime-light-bg);
+    padding: 20px;
+    border-radius: 4px;
+    margin-bottom: 30px;
+}
+
+.tutorial-prerequisites h3 {
+    color: var(--sublime-yellow);
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.tutorial-os-compatibility {
+    background-color: var(--sublime-light-bg);
+    padding: 20px;
+    border-radius: 4px;
+    margin-top: 30px;
+}
+
+.tutorial-os-compatibility h3 {
+    color: var(--sublime-yellow);
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.os-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.os-list li {
+    background-color: var(--sublime-panel);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+/* Code Blocks (Base styling, will be enhanced by Prism.js) */
+pre {
+    background-color: var(--sublime-panel);
+    border-radius: 4px;
+    padding: 20px;
+    overflow: auto;
+    margin: 30px 0;
+    font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+    border-left: 3px solid var(--sublime-blue);
+}
+
+code {
+    font-family: 'Consolas', 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+}
+
+/* Sidebar */
+.widget {
+    background-color: var(--sublime-light-bg);
+    padding: 20px;
+    margin-bottom: 30px;
+    border-radius: 4px;
+}
+
+.widget-title {
+    color: var(--sublime-yellow);
+    font-size: 20px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--sublime-border);
+    padding-bottom: 10px;
+}
+
+.widget ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.widget li {
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px dotted var(--sublime-border);
+}
+
+.widget li:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.widget a {
+    color: var(--sublime-blue);
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.widget a:hover {
+    color: var(--sublime-green);
+}
+
+/* Footer */
+.site-footer {
+    background-color: var(--sublime-panel);
+    padding: 30px 0;
+    border-top: 1px solid var(--sublime-border);
+    margin-top: auto;
+}
+
+.site-info {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+    text-align: center;
+    color: var(--sublime-comment);
+    font-size: 14px;
+}
+
+.site-info a {
+    color: var(--sublime-blue);
+    text-decoration: none;
+}
+
+/* Tutorial Grid (for shortcode display) */
+.tutorial-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 30px;
+    margin: 30px 0;
+}
+
+.tutorial-item {
+    background-color: var(--sublime-light-bg);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.tutorial-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+.tutorial-item h3 {
+    padding: 15px 20px 5px;
+    margin: 0;
+    font-size: 18px;
+}
+
+.tutorial-item h3 a {
+    color: var(--sublime-blue);
+    text-decoration: none;
+}
+
+.tutorial-readmore {
+    display: block;
+    background: var(--sublime-blue);
+    color: var(--sublime-bg);
+    text-align: center;
+    padding: 10px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.3s;
+}
+
+.tutorial-readmore:hover {
+    background: var(--sublime-green);
+}
+
+/* Pagination */
+.pagination {
+    margin: 40px 0;
+    text-align: center;
+}
+
+.pagination .nav-links {
+    display: inline-block;
+}
+
+.page-numbers {
+    display: inline-block;
+    padding: 8px 12px;
+    margin: 0 5px;
+    background-color: var(--sublime-light-bg);
+    color: var(--sublime-text);
+    text-decoration: none;
+    border-radius: 3px;
+    transition: background-color 0.3s;
+}
+
+.page-numbers.current {
+    background-color: var(--sublime-blue);
+    color: var(--sublime-bg);
+}
+
+.page-numbers:hover {
+    background-color: var(--sublime-green);
+    color: var(--sublime-bg);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .site-content {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        margin-left: 0;
+        margin-top: 40px;
+    }
+    
+    .main-navigation ul {
+        flex-direction: column;
+    }
+    
+    .main-navigation li {
+        padding: 10px 0;
+    }
+}

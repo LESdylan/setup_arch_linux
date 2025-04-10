@@ -1,0 +1,114 @@
+.notion-wp-sync-admin .nav-tab-wrapper {
+    margin-bottom: 1em;
+}
+
+.notion-wp-sync-admin .tab-content {
+    padding: 1em 0;
+}
+
+.notion-wp-sync-admin .connection-status {
+    margin-top: 0.5em;
+    padding: 0.5em;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.notion-wp-sync-admin .connection-status.success {
+    background-color: #dff0d8;
+    color: #3c763d;
+}
+
+.notion-wp-sync-admin .connection-status.error {
+    background-color: #f2dede;
+    color: #a94442;
+}
+
+.notion-wp-sync-admin .status-success {
+    color: #3c763d;
+}
+
+.notion-wp-sync-admin .status-error {
+    color: #a94442;
+}
+
+.notion-wp-sync-manual-sync {
+    margin-top: 2em;
+    padding: 1em;
+    background: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.notion-wp-sync-manual-sync #notion-wp-sync-sync-status {
+    margin-top: 1em;
+}
+
+.notion-wp-sync-manual-sync #notion-wp-sync-sync-status .success {
+    color: #3c763d;
+}
+
+.notion-wp-sync-manual-sync #notion-wp-sync-sync-status .error {
+    color: #a94442;
+}
+
+.notion-wp-sync-mappings table,
+.notion-wp-sync-logs table {
+    margin-top: 1em;
+    margin-bottom: 2em;
+}
+
+.notion-wp-sync-mappings h2,
+.notion-wp-sync-logs h2 {
+    margin-top: 2em;
+}
+
+/* System Check Styles */
+.notion-wp-sync-debug .system-check-section {
+    margin-bottom: 20px;
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 15px;
+}
+
+.notion-wp-sync-debug .system-check-section h4 {
+    margin-top: 0;
+}
+
+.notion-wp-sync-debug .status-badge {
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: inline-block;
+}
+
+.notion-wp-sync-debug .status-badge.success {
+    background-color: #dff0d8;
+    color: #3c763d;
+}
+
+.notion-wp-sync-debug .status-badge.warning {
+    background-color: #fcf8e3;
+    color: #8a6d3b;
+}
+
+.notion-wp-sync-debug .status-badge.error {
+    background-color: #f2dede;
+    color: #a94442;
+}
+
+.notion-wp-sync-debug .details {
+    margin-top: 10px;
+    padding: 10px;
+    background: #f9f9f9;
+    border: 1px solid #e5e5e5;
+}
+
+.notion-wp-sync-debug .details h5 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.notion-wp-sync-debug .details ul {
+    margin: 0;
+    padding-left: 20px;
+}

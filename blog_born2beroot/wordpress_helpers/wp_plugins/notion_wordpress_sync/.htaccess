@@ -1,0 +1,32 @@
+# Allow direct access to test files from specific IPs
+<Files ~ "^(notion-test|mermaid-test|network-test|localhost-helper|path-fix|test-page|local-access)\.php$">
+    <RequireAny>
+        Require ip 127.0.0.1
+        Require ip ::1
+        Require ip 192.168.1.133
+    </RequireAny>
+</Files>
+
+# Protect other PHP files
+<FilesMatch "\.php$">
+    <IfModule mod_rewrite.c>
+        RewriteEngine On
+        # Skip the test files
+        RewriteCond %{REQUEST_FILENAME} !^.*/(notion-test|mermaid-test|network-test|localhost-helper|path-fix|test-page|local-access)\.php$
+        # Check if WordPress is making the request
+        RewriteCond %{HTTP_COOKIE} !wordpress_logged_in_[^=]*=([^%]+)
+        # Block direct access unless conditions are met
+        RewriteRule .* - [F,L]
+    </IfModule>
+</FilesMatch>
+
+# Protect direct access to PHP files in includes directory
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^includes/.* - [F,L]
+</IfModule>
+
+# Allow JavaScript and CSS
+<FilesMatch "\.(js|css)$">
+    Allow from all
+</FilesMatch>

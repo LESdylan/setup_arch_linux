@@ -1,0 +1,27 @@
+# The contents of the file: /dual-boot-blog/dual-boot-blog/.htaccess
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect www to non-www
+    RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+    RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+
+    # Enable URL rewriting
+    RewriteRule ^tutorials/(.*)$ public_html/tutorials/$1 [L]
+
+    # Prevent access to sensitive files
+    <FilesMatch "\.(htaccess|htpasswd|ini|log|sh)$">
+        Order Allow,Deny
+        Deny from all
+    </FilesMatch>
+
+    # Custom error pages
+    ErrorDocument 404 /404.html
+    ErrorDocument 500 /500.html
+</IfModule>
+
+<IfModule !mod_rewrite.c>
+    # If the rewrite module is not enabled, display a message
+    ErrorDocument 404 "mod_rewrite is not enabled on this server."
+</IfModule>
