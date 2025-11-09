@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Variables - using your specific path
-VM_NAME="born2beroot"
-VM_PATH="/home/dlesieur/sgoinfre/dlesieur42/m_virtual_machine"
-ISO_PATH="$(pwd)/debian-12.10.0-amd64-netinst.iso"  # Default ISO path
+VM_NAME="debian"
+VM_PATH="$(pwd)/disk_images"
+ISO_PATH="$(pwd)/debian-13.1.0-amd64-preseed.iso"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
 VM_DISK_SIZE=8192  # 8GB in MB
-PRESEED_PATH="$(pwd)/preseed.cfg"
+PRESEED_PATH="$(pwd)/preseeds/deb_preseed.cfg"
 
 # Create VM folders if they don't exist
 mkdir -p "$VM_PATH/$VM_NAME"

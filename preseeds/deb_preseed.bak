@@ -1,5 +1,19 @@
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    deb_preseed.bak                                    :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: dlesieur <dlesieur@student.42.fr>          +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2025/11/09 21:00:01 by                   #+#    #+#              #
+#    Updated: 2025/11/09 21:00:18 by dlesieur         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 # Current Date and Time (UTC - YYYY-MM-DD HH:MM:SS formatted): 2025-04-01 16:45:23
 # Current User's Login: LESdylan
+
+d-i preseed/early_command string /bin/sh -c 'echo PRESEED WORKS > /tmp/preseed-works'
 
 ### Localization - English with US locale
 d-i debian-installer/locale string en_US.UTF-8
