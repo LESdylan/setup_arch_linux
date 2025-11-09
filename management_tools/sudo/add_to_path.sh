@@ -47,7 +47,7 @@ add_program_to_path() {
     selected_dir=$(dirname "$selected_path")
     
     echo -e "\n🔍 Selected program: $selected_path"
-    
+   
     # Check if the directory is already in PATH
     if [[ ":$PATH:" == *":$selected_dir:"* ]]; then
         echo -e "✅ The directory \"$selected_dir\" is already in your PATH."
