@@ -1,21 +1,36 @@
 #!/bin/bash
 
+set -e  # Exit on any error
+
 # Variables - using your specific path
 VM_NAME="debian"
 VM_PATH="$(pwd)/disk_images"
 ISO_PATH="$(pwd)/debian-13.1.0-amd64-preseed.iso"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
-VM_DISK_SIZE=8192  # 8GB in MB
-PRESEED_PATH="$(pwd)/preseeds/deb_preseed.cfg"
+VM_DISK_SIZE=32000  # 32GB in MB
+PRESEED_PATH="$(pwd)/preseeds/preseed.cfg"
+
+# VM Configuration
+VM_MEMORY=4096  # Increased for WordPress
+VM_CPUS=4
+VM_VRAM=128
+SSH_PORT=4242
+HTTP_PORT=80
+HTTPS_PORT=443
+
+DOCKER_REGISTRY_PORT=5000
+MARIADB_PORT=3306
+REDIS_PORT=6379
 
 # Create VM folders if they don't exist
 mkdir -p "$VM_PATH/$VM_NAME"
 
 # Function to print headers
 print_header() {
-    echo "================"
-    echo "      $1"
-    echo "================"
+    echo ""
+    echo "==============================================="
+    echo "  $1"
+    echo "==============================================="
 }
 
 print_header "Setting up Born2beRoot VirtualBox VM"
@@ -49,15 +64,55 @@ VBoxManage createvm --name "$VM_NAME" --ostype "Debian_64" --basefolder "$VM_PAT
     echo "Failed to create VM"; exit 1;
 }
 
-# Set memory and network
-print_header "Configuring VM settings"
-VBoxManage modifyvm "$VM_NAME" --memory 1024 --vram 128 --cpus 1 || {
-    echo "Failed to set VM memory/CPU"; exit 1;
+# Set memory, CPU, and display
+print_header "Configuring VM hardware settings"
+VBoxManage modifyvm "$VM_NAME" \
+    --memory "$VM_MEMORY" \
+    --vram "$VM_VRAM" \
+    --cpus "$VM_CPUS" \
+    --acpi on \
+    --ioapic on \
+    --rtcuseutc on \
+    --clipboard bidirectional \
+    --draganddrop bidirectional || {
+    echo "Failed to set VM hardware"; exit 1;
 }
+
+# Set network - NAT with port forwarding
+print_header "Configuring network and port forwarding"
 VBoxManage modifyvm "$VM_NAME" --nic1 nat || {
     echo "Failed to set VM network"; exit 1;
 }
 
+# Set up NAT port forwarding for SSH (host:4242 -> guest:4242)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "ssh4242,tcp,,${SSH_PORT},,${SSH_PORT}" || {
+    echo "Failed to set up NAT port forwarding for SSH"; exit 1;
+}
+
+# Set up NAT port forwarding for HTTP (host:8080 -> guest:80)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "http8080,tcp,,8080,,${HTTP_PORT}" || {
+    echo "Failed to set up NAT port forwarding for HTTP"; exit 1;
+}
+
+# Set up NAT port forwarding for HTTPS (host:8443 -> guest:443)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "https8443,tcp,,8443,,${HTTPS_PORT}" || {
+    echo "Failed to set up NAT port forwarding for HTTPS"; exit 1;
+}
+
+# Set up NAT port forwarding for Docker Registry (host:5000 -> guest:5000)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "docker5000,tcp,,5000,,${DOCKER_REGISTRY_PORT}" || {
+    echo "Failed to set up NAT port forwarding for Docker Registry"; exit 1;
+}
+
+# Set up NAT port forwarding for MariaDB (host:3306 -> guest:3306)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "mariadb3306,tcp,,3306,,${MARIADB_PORT}" || {
+    echo "Failed to set up NAT port forwarding for MariaDB"; exit 1;
+}
+
+# Set up NAT port forwarding for Redis (host:6379 -> guest:6379)
+VBoxManage modifyvm "$VM_NAME" --natpf1 "redis6379,tcp,,6379,,${REDIS_PORT}" || {
+    echo "Failed to set up NAT port forwarding for Redis"; exit 1;
+}
 # Create disk if it does not exist
 if [ ! -f "$VM_DISK_PATH" ]; then
     print_header "Creating virtual disk"
@@ -84,26 +139,43 @@ VBoxManage storageattach "$VM_NAME" --storagectl "IDE Controller" --port 0 --dev
     echo "Failed to attach ISO"; exit 1;
 }
 
-# Set boot order
+# Set boot order (DVD first for installation, then disk)
+print_header "Setting boot order"
 VBoxManage modifyvm "$VM_NAME" --boot1 dvd --boot2 disk --boot3 none --boot4 none || {
     echo "Failed to set boot order"; exit 1;
 }
 
-print_header "VM Setup Complete"
-echo "Your VM has been created successfully!"
-echo "Start the VM with: VBoxManage startvm \"$VM_NAME\""
+# Enable nested virtualization (optional, for advanced use)
+VBoxManage modifyvm "$VM_NAME" --nested-hw-virt on || true
 
-# Instructions for manual preseed
-if [ -f "$PRESEED_PATH" ]; then
-    echo ""
-    echo "NOTE: To use your preseed file for automated installation:"
-    echo "1. Start a local web server to serve your preseed file:"
-    echo "   python -m http.server"
-    echo ""
-    echo "2. When the Debian installer starts, press ESC and enter boot parameters:"
-    echo "   auto url=http://YOUR_IP:8000/preseed.cfg"
-    echo ""
-else
-    echo ""
-    echo "NOTE: For automated installation, create a preseed.cfg file."
-fi
+print_header "VM Setup Complete"
+echo ""
+echo "Port Forwarding Configuration:"
+echo "  - SSH:      Host 127.0.0.1:${SSH_PORT} -> Guest 0.0.0.0:${SSH_PORT}"
+echo "  - HTTP:     Host 127.0.0.1:8080 -> Guest 0.0.0.0:${HTTP_PORT}"
+echo "  - HTTPS:    Host 127.0.0.1:8443 -> Guest 0.0.0.0:${HTTPS_PORT}"
+echo "  - Docker:   Host 127.0.0.1:5000 -> Guest 0.0.0.0:${DOCKER_REGISTRY_PORT}"
+echo "  - MariaDB:  Host 127.0.0.1:3306 -> Guest 0.0.0.0:${MARIADB_PORT}"
+echo "  - Redis:    Host 127.0.0.1:6379 -> Guest 0.0.0.0:${REDIS_PORT}"
+echo ""
+echo "Next Steps:"
+echo "  1. Start the VM:"
+echo "     VBoxManage startvm \"$VM_NAME\" --type headless"
+echo ""
+echo "  2. SSH into your VM from host:"
+echo "     ssh -p ${SSH_PORT} dlesieur@127.0.0.1"
+echo ""
+echo "  3. Install Docker and Docker Compose:"
+echo "     curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh"
+echo "     sudo usermod -aG docker dlesieur"
+echo "     sudo curl -L \"https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose"
+echo "     sudo chmod +x /usr/local/bin/docker-compose"
+echo ""
+echo "  4. Clone Inception project and run docker-compose:"
+echo "     cd ~/inception && docker-compose up -d"
+echo ""
+echo "  5. Access services from host:"
+echo "     - WordPress:      http://127.0.0.1:8080"
+echo "     - MariaDB:        mysql -h 127.0.0.1 -P 3306 -u root -p"
+echo "     - Docker Registry: http://127.0.0.1:5000"
+echo ""
