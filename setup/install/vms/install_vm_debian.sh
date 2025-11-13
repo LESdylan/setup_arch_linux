@@ -9,6 +9,11 @@ ISO_PATH="$(pwd)/debian-13.1.0-amd64-preseed.iso"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
 VM_DISK_SIZE=32000  # 32GB in MB
 PRESEED_PATH="$(pwd)/preseeds/preseed.cfg"
+BASE_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/"
+# Get only the ISO filename (strip HTML tags)
+ISO_FILE=$(curl -s $BASE_URL | grep -oE 'debian-[0-9.]+-amd64-netinst\.iso' | head -n 1)
+ISO_URL="${BASE_URL}${ISO_FILE}"
+ISO_PATH="$HOME/Downloads/${ISO_FILE}"
 
 # VM Configuration
 VM_MEMORY=4096  # Increased for WordPress
@@ -52,11 +57,15 @@ else
     print_header "Creating new VM - No existing VM found"
 fi
 
+echo "Downloading latest debian ISO: $ISO_FILE"
+
 # Check if ISO exists and allow user to update it
-while [ ! -f "$ISO_PATH" ]; do
-    print_header "ERROR: ISO not found at $ISO_PATH"
-    read -p "Enter correct path to Debian ISO: " ISO_PATH
-done
+if [ ! -f "$ISO_PATH" ]; then
+    mkdir -p "$HOME/Downloads"
+    wget -O "$ISO_PATH" "$ISO_URL"
+fi
+
+echo "ISO downloaded at $ISO_PATH"
 
 # Create the VM
 print_header "Creating VirtualBox VM"

@@ -16,10 +16,23 @@ start_vm: setup_vm
 	VBoxManage startvm $(VM_NAME) || echo "error"
 
 gen_iso:
-	sudo bash generate/create_custom_iso.sh
+	@if id -nG "$$USER" | grep -qw "sudo"; then														\
+		sudo bash generate/create_custom_iso.sh;													\
+	else																							\
+		echo "Detected that user doesn't have sudo privileges, manual instructions activated...";	\
+	fi
 
 setup_vm:
-	@bash $(GEN_DEB)|| echo "error"
+	@if id -nG "$$USER" | grep -qw "sudo"; then \
+		bash $(GEN_DEB); \
+	else \
+		bash $(GEN_DEB) > /dev/null; \
+		echo ""; \
+		echo ""; \
+		echo "Manual preseed injection required:"; \
+		echo "1. In another terminal, run: cd preseeds && python3 -m http.server 8000"; \
+		echo "2. During Debian install, set preseed URL to: http://<host_ip>:8000/preseed.cfg"; \
+	fi
 
 list_vms_iso:
 	@tar -tf $(VMS_ISO_TAR) | grep -v '^$(VMS_ISO_TAR)$$'
@@ -47,7 +60,6 @@ bstart_vm: setup_vm
 		sleep 2; \
 	done
 	@echo "VM is ready!"
-
 
 help:
 	@printf "%-30.15s => %-15s\n" "all" "Create and start the VM"
