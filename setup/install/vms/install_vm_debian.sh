@@ -2,18 +2,23 @@
 
 set -e  # Exit on any error
 
-# Variables - using your specific path
+# ── Locate the preseeded ISO (built by create_custom_iso.sh) ─────────────────
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$SCRIPT_DIR"
+
+PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
+if [ -z "$PRESEED_ISO" ]; then
+    echo "Error: No preseeded ISO found in $SCRIPT_DIR"
+    echo "Run 'make gen_iso' first."
+    exit 1
+fi
+
+# Variables
 VM_NAME="debian"
 VM_PATH="$(pwd)/disk_images"
-ISO_PATH="$(pwd)/debian-13.1.0-amd64-preseed.iso"
+ISO_PATH="$(pwd)/$PRESEED_ISO"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
 VM_DISK_SIZE=32000  # 32GB in MB
-PRESEED_PATH="$(pwd)/preseeds/preseed.cfg"
-BASE_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/"
-# Get only the ISO filename (strip HTML tags)
-ISO_FILE=$(curl -s $BASE_URL | grep -oE 'debian-[0-9.]+-amd64-netinst\.iso' | head -n 1)
-ISO_URL="${BASE_URL}${ISO_FILE}"
-ISO_PATH="$HOME/Downloads/${ISO_FILE}"
 
 # VM Configuration
 VM_MEMORY=4096  # Increased for WordPress
@@ -57,15 +62,8 @@ else
     print_header "Creating new VM - No existing VM found"
 fi
 
-echo "Downloading latest debian ISO: $ISO_FILE"
-
-# Check if ISO exists and allow user to update it
-if [ ! -f "$ISO_PATH" ]; then
-    mkdir -p "$HOME/Downloads"
-    wget -O "$ISO_PATH" "$ISO_URL"
-fi
-
-echo "ISO downloaded at $ISO_PATH"
+echo "Using preseeded ISO: $PRESEED_ISO"
+echo "ISO path: $ISO_PATH"
 
 # Create the VM
 print_header "Creating VirtualBox VM"

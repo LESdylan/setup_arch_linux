@@ -2,20 +2,58 @@
 
 set -e  # Exit on any error
 
-ISO_DIR="debian_iso_extract"
-ISO_FILENAME="debian-13.1.0-amd64-netinst.iso"
-URL_IMAGE_ISO="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/$ISO_FILENAME"
-PRESEED_FILE="preseeds/preseed.cfg"
-OUTPUT_ISO="debian-13.1.0-amd64-preseed.iso"
+# ── Portable downloader (curl preferred, wget fallback) ──────────────────────
+download() {
+    local url="$1" dest="$2"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fL --progress-bar -o "$dest" "$url"
+    elif command -v wget >/dev/null 2>&1; then
+        wget -O "$dest" "$url"
+    else
+        echo "Error: neither curl nor wget found. Install one of them." >&2
+        exit 1
+    fi
+}
+
+# ── Dynamically discover the latest Debian netinst ISO ───────────────────────
+BASE_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/"
 
 echo "===== Creating Custom Debian ISO with Preseed ====="
+echo "Querying $BASE_URL for the latest ISO filename..."
 
-# Check if ISO already exists locally
+ISO_FILENAME=$(curl -fsSL "$BASE_URL" 2>/dev/null \
+    | grep -oE 'debian-[0-9.]+-amd64-netinst\.iso' \
+    | head -n1)
+
+if [ -z "$ISO_FILENAME" ]; then
+    echo "Error: Could not determine the latest Debian ISO filename from $BASE_URL"
+    echo "The Debian mirrors may be temporarily unavailable."
+    exit 1
+fi
+
+URL_IMAGE_ISO="${BASE_URL}${ISO_FILENAME}"
+ISO_DIR="debian_iso_extract"
+PRESEED_FILE="preseeds/preseed.cfg"
+# Derive the output name from the discovered filename
+OUTPUT_ISO="${ISO_FILENAME%.iso}-preseed.iso"
+
+echo "  Latest ISO: $ISO_FILENAME"
+echo "  URL:        $URL_IMAGE_ISO"
+echo "  Output:     $OUTPUT_ISO"
+echo ""
+
+# ── Check for already-built preseed ISO ──────────────────────────────────────
+if [ -f "$OUTPUT_ISO" ]; then
+    echo "✓ Preseeded ISO already exists: $OUTPUT_ISO"
+    exit 0
+fi
+
+# ── Download the base ISO if needed ──────────────────────────────────────────
 if [ -f "$ISO_FILENAME" ]; then
     echo "✓ ISO file found locally: $ISO_FILENAME"
 else
-    echo "Downloading ISO from $URL_IMAGE_ISO..."
-    wget "$URL_IMAGE_ISO" || { echo "Error: Failed to download ISO"; exit 1; }
+    echo "Downloading ISO from $URL_IMAGE_ISO ..."
+    download "$URL_IMAGE_ISO" "$ISO_FILENAME" || { echo "Error: Failed to download ISO"; exit 1; }
 fi
 
 # Check if preseed file exists
@@ -28,7 +66,18 @@ fi
 echo "Extracting ISO to $ISO_DIR..."
 rm -rf "$ISO_DIR"
 mkdir -p "$ISO_DIR"
-bsdtar -C "$ISO_DIR" -xf "$ISO_FILENAME"
+
+# Use xorriso (most portable for ISO manipulation), fallback to bsdtar, then 7z
+if command -v xorriso >/dev/null 2>&1; then
+    xorriso -osirrox on -indev "$ISO_FILENAME" -extract / "$ISO_DIR" 2>/dev/null
+elif command -v bsdtar >/dev/null 2>&1; then
+    bsdtar -C "$ISO_DIR" -xf "$ISO_FILENAME"
+elif command -v 7z >/dev/null 2>&1; then
+    7z x -o"$ISO_DIR" "$ISO_FILENAME" >/dev/null
+else
+    echo "Error: No ISO extraction tool found. Install xorriso, bsdtar, or p7zip."
+    exit 1
+fi
 
 # Make extracted files writable
 chmod -R u+w "$ISO_DIR"
@@ -86,11 +135,19 @@ fi
 # Update MD5 sums
 echo "Updating MD5 checksums..."
 cd "$ISO_DIR"
-md5sum $(find -follow -type f ! -name md5sum.txt ! -path './isolinux/*') > md5sum.txt
+find . -type f ! -name md5sum.txt ! -path './isolinux/*' -exec md5sum {} + > md5sum.txt 2>/dev/null || true
 cd ..
 
 # Rebuild ISO
 echo "Rebuilding ISO with xorriso..."
+if ! command -v xorriso >/dev/null 2>&1; then
+    echo "Error: xorriso is required to rebuild the ISO."
+    echo "Install it with:"
+    echo "  Debian/Ubuntu: sudo apt-get install -y xorriso"
+    echo "  Fedora:        sudo dnf install -y xorriso"
+    echo "  Arch:          sudo pacman -Sy xorriso"
+    exit 1
+fi
 cd "$ISO_DIR"
 xorriso -as mkisofs \
     -o "../$OUTPUT_ISO" \
