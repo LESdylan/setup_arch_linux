@@ -1,15 +1,15 @@
-# ============================================================================ #
-#   Born2beRoot — One-command VM provisioner                                   #
+# **************************************************************************** #
 #                                                                              #
-#   Usage:                                                                     #
-#     make            — full pipeline (install deps → ISO → VM → start)        #
-#     make status     — show current state of every prerequisite                #
-#     make start_vm   — start an already-created VM                            #
-#     make poweroff   — gracefully shut down the VM                            #
-#     make clean      — delete downloaded ISOs                                 #
-#     make fclean     — delete ISOs + VM disk images                           #
-#     make re         — fclean + full rebuild                                  #
-#     make help       — list all targets                                       #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: dlesieur <dlesieur@student.42.fr>          +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: Invalid date        by ut down the       #+#    #+#              #
+#    Updated: 2026/02/14 00:06:08 by dlesieur         ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
+
 # ============================================================================ #
 
 # =========@@ Config @@=========================================================
@@ -100,61 +100,7 @@ start_vm:
 
 # =========@@ Status @@========================================================
 status:
-	@bash -c '\
-	printf "$(C_BOLD)$(C_CYAN)──── Environment Status ────$(C_RESET)\n\n"; \
-	\
-	printf "  VirtualBox ........... "; \
-	if command -v VBoxManage >/dev/null 2>&1; then \
-		printf "$(C_GREEN)✓ $$(VBoxManage --version 2>/dev/null)$(C_RESET)\n"; \
-	else \
-		printf "$(C_RED)✗ not installed$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  xorriso .............. "; \
-	if command -v xorriso >/dev/null 2>&1; then \
-		printf "$(C_GREEN)✓$(C_RESET)\n"; \
-	else \
-		printf "$(C_RED)✗ not installed$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  curl ................. "; \
-	if command -v curl >/dev/null 2>&1; then \
-		printf "$(C_GREEN)✓$(C_RESET)\n"; \
-	else \
-		printf "$(C_RED)✗ not installed$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  Preseed file ......... "; \
-	if [ -f "$(PRESEED_FILE)" ]; then \
-		printf "$(C_GREEN)✓ $(PRESEED_FILE)$(C_RESET)\n"; \
-	else \
-		printf "$(C_RED)✗ missing$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  Debian base ISO ...... "; \
-	BASE=$$(ls -1 debian-*-amd64-netinst.iso 2>/dev/null | head -n1); \
-	if [ -n "$$BASE" ]; then \
-		printf "$(C_GREEN)✓ $$BASE$(C_RESET)\n"; \
-	else \
-		printf "$(C_YELLOW)⚠ not downloaded yet$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  Preseeded ISO ........ "; \
-	PISO=$$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1); \
-	if [ -n "$$PISO" ]; then \
-		printf "$(C_GREEN)✓ $$PISO$(C_RESET)\n"; \
-	else \
-		printf "$(C_YELLOW)⚠ not built yet$(C_RESET)\n"; \
-	fi; \
-	\
-	printf "  VM \"$(VM_NAME)\" ............ "; \
-	if VBoxManage showvminfo "$(VM_NAME)" >/dev/null 2>&1; then \
-		STATE=$$(VBoxManage showvminfo "$(VM_NAME)" --machinereadable 2>/dev/null | grep "^VMState=" | cut -d\" -f2); \
-		printf "$(C_GREEN)✓ ($$STATE)$(C_RESET)\n"; \
-	else \
-		printf "$(C_YELLOW)⚠ not created$(C_RESET)\n"; \
-	fi; \
-	printf "\n"'
+	@bash generate/status.sh "$(VM_NAME)" "$(PRESEED_FILE)"
 
 # =========@@ Headless boot with unlock @@======================================
 bstart_vm:
@@ -213,6 +159,7 @@ prune_vms:
 	printf "$(C_GREEN)✓$(C_RESET) All VMs removed\n"
 
 clean:
+	@chmod -R u+w debian_iso_extract 2>/dev/null || true
 	$(RM) debian-*-amd64-netinst.iso debian-*-amd64-*preseed.iso debian_iso_extract
 
 fclean: clean rm_disk_image
@@ -222,19 +169,4 @@ re: fclean all
 
 # =========@@ Help @@==========================================================
 help:
-	@printf "$(C_BOLD)$(C_CYAN)Born2beRoot Makefile$(C_RESET)\n\n"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make / make all"  "Full pipeline: deps → ISO → VM → start"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make status"      "Show current state of all prerequisites"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make deps"        "Install VirtualBox + tools (cross-distro)"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make gen_iso"     "Download Debian ISO & inject preseed"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make setup_vm"    "Create the VirtualBox VM"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make start_vm"    "Start the VM (GUI)"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make bstart_vm"   "Start headless + unlock encrypted disk"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make poweroff"    "Shut down the VM"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make list_vms"    "List all VirtualBox VMs"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make rm_disk_image" "Delete the VM completely"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make prune_vms"   "Delete ALL VMs"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make clean"       "Remove downloaded ISOs"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make fclean"      "Remove ISOs + disk images"
-	@printf "  $(C_BOLD)%-18s$(C_RESET) %s\n" "make re"          "Full clean rebuild"
-	@printf "\n"
+	@bash generate/help.sh

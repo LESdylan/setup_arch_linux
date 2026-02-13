@@ -64,6 +64,7 @@ fi
 
 # Create extraction directory
 echo "Extracting ISO to $ISO_DIR..."
+chmod -R u+w "$ISO_DIR" 2>/dev/null || true
 rm -rf "$ISO_DIR"
 mkdir -p "$ISO_DIR"
 
