@@ -1,7 +1,4 @@
 #!/bin/bash
-# Windows 11 VM Creator for Affinity Designer
-# Current Date and Time (UTC): 2025-04-04 16:40:30
-# Current User: LESdylan
 
 # Install required packages
 sudo apt update

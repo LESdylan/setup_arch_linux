@@ -1,7 +1,4 @@
 #!/bin/bash
-# FTP Configuration Script (Fixed Version)
-# Created: 2025-04-04
-# Author: LESdylan
 
 # Text colors
 GREEN='\033[0;32m'

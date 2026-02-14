@@ -1,7 +1,4 @@
 #!/bin/bash
-# Complete System Backup Script - Optimized for your setup
-# Current Date and Time (UTC): 2025-04-04 17:05:42
-# Current User: LESdylan
 
 # Create backup destination
 BACKUP_DIR="/media/dlesieur/UBUNTU_INST/ubuntu_backup_$(date +%Y%m%d)"

@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# WordPress AppArmor Configuration Script
-# Created: 2025-04-10
-# Author: Github Copilot
-# Purpose: Configure AppArmor profiles for WordPress security
-
 echo "===================================================="
 echo "WordPress AppArmor Configuration Script"
 echo "===================================================="

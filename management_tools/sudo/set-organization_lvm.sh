@@ -1,8 +1,4 @@
 #!/bin/bash
-# LVM Personalization & Learning Script - With Configuration Backup
-# Created: 2025-04-04 18:15:42
-# Author: GitHub Copilot for LESdylan
-# Purpose: Safely modify and learn about LVM without breaking your system
 
 # Colors for better readability
 RED='\033[0;31m'

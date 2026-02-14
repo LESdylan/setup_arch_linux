@@ -1,7 +1,4 @@
 #!/bin/bash
-# Affinity Suite Installation Script for Ubuntu
-# Current Date and Time (UTC): 2025-04-04 16:05:10
-# Current User: LESdylan
 
 # Install Wine and required dependencies
 sudo apt update

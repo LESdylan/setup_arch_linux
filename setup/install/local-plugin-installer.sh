@@ -1,7 +1,4 @@
 #!/bin/bash
-# Dynamic WordPress Plugin Installer
-# Created: 2025-04-05
-# Author: LESdylan
 
 # Text colors for better readability
 GREEN='\033[0;32m'

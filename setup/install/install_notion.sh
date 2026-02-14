@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Notion Installation Script for Ubuntu Server (Snap Method)
-# Current Date and Time (UTC): 2025-04-04 15:50:00
-# Current User: LESdylan
-
 set -eo pipefail
 
 # Colors for output

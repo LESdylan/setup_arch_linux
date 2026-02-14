@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# Born2beRoot System Configuration Script
-# Author: LESdylan
-# Date: 2025-04-01
-
 # Colors for better readability
 RED='\033[0;31m'
 GREEN='\033[0;32m'

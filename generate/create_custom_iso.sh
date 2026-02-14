@@ -87,6 +87,17 @@ chmod -R u+w "$ISO_DIR"
 echo "Copying preseed file to ISO root..."
 cp "$PRESEED_FILE" "$ISO_DIR/preseed.cfg"
 
+# Copy late_command helper scripts to ISO root (accessible as /cdrom/ during install)
+echo "Copying setup scripts to ISO root..."
+for SCRIPT in b2b-setup.sh monitoring.sh first-boot-setup.sh; do
+    if [ -f "preseeds/$SCRIPT" ]; then
+        cp "preseeds/$SCRIPT" "$ISO_DIR/$SCRIPT"
+        echo "  ✓ $SCRIPT"
+    else
+        echo "  ✗ WARNING: preseeds/$SCRIPT not found"
+    fi
+done
+
 # ── CRITICAL: Inject preseed.cfg into the initrd ────────────────────────────
 # The Debian installer auto-loads preseed.cfg from the initrd root BEFORE
 # the CD-ROM is mounted. This is the ONLY reliable way to preseed with
@@ -148,7 +159,7 @@ label install
     menu label ^Automated Install
     menu default
     kernel /install.amd/vmlinuz
-    append auto=true priority=critical locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 initrd=/install.amd/initrd.gz --- quiet
+    append auto=true priority=critical DEBIAN_FRONTEND=noninteractive locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 initrd=/install.amd/initrd.gz --- quiet
 EOF
     echo "  ✓ txt.cfg       → Automated Install (default)"
 fi
@@ -181,7 +192,7 @@ set timeout=1
 
 menuentry 'Automated Install' {
     set background_color=black
-    linux    /install.amd/vmlinuz auto=true priority=critical locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 --- quiet
+    linux    /install.amd/vmlinuz auto=true priority=critical DEBIAN_FRONTEND=noninteractive locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 --- quiet
     initrd   /install.amd/initrd.gz
 }
 

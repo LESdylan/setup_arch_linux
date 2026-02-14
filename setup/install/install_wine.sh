@@ -1,7 +1,4 @@
 #!/bin/bash
-# Wine Reinstallation for Affinity Designer
-# Current Date and Time (UTC): 2025-04-04 16:19:45
-# Current User: LESdylan
 
 # Stop any running wine processes
 wineserver -k
