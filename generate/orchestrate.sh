@@ -236,14 +236,64 @@ else
     STEP_DETAIL[2]="${VM_NAME}"; draw_dashboard
 fi
 
-# Step 4 — Start VM
+# Step 4 — Start VM (install from ISO)
 VM_STATE=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
     | grep "^VMState=" | cut -d'"' -f2)
 if [ "$VM_STATE" = "running" ]; then
     STEP_STATUS[3]="skip"; STEP_DETAIL[3]="already running"; draw_dashboard
 else
     run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
-    STEP_DETAIL[3]="launched"; draw_dashboard
+    STEP_DETAIL[3]="installing..."; draw_dashboard
+fi
+
+# ── Wait for install to finish (VM will power off) then boot from disk ───
+# The preseed sets exit/poweroff=true so the VM shuts down after install.
+# We wait for that, then switch boot order from DVD→disk to disk→DVD,
+# detach the ISO, and start the VM to boot from the installed system.
+wait_for_install() {
+    local timeout=1800  # 30 minutes max
+    local elapsed=0
+    while [ $elapsed -lt $timeout ]; do
+        sleep 10
+        elapsed=$((elapsed + 10))
+        local state
+        state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+            | grep "^VMState=" | cut -d'"' -f2)
+        if [ "$state" = "poweroff" ] || [ "$state" = "aborted" ]; then
+            return 0
+        fi
+        # Update dashboard with elapsed time
+        local mins=$((elapsed / 60))
+        local secs=$((elapsed % 60))
+        STEP_DETAIL[3]="installing... ${mins}m${secs}s"
+        draw_dashboard
+    done
+    return 1  # timeout
+}
+
+# Only wait if the VM was just started for installation (DVD boot)
+BOOT1=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+    | grep "^boot1=" | cut -d'"' -f2)
+if [ "$BOOT1" = "dvd" ]; then
+    STEP_DETAIL[3]="installing (this takes ~10-20 min)..."
+    draw_dashboard
+    if wait_for_install; then
+        # Switch boot order: disk first, remove ISO
+        VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
+        VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" --port 0 --device 0 --medium emptydrive 2>/dev/null || true
+        STEP_DETAIL[3]="install done, booting from disk..."
+        draw_dashboard
+        # Start VM from disk
+        VBoxManage startvm "${VM_NAME}" --type gui 2>/dev/null || true
+        STEP_DETAIL[3]="booted from disk"
+        draw_dashboard
+    else
+        STEP_STATUS[3]="fail"; STEP_DETAIL[3]="install timeout (30min)"
+        draw_dashboard
+    fi
+else
+    STEP_DETAIL[3]="booted from disk"
+    draw_dashboard
 fi
 
 # ── Read actual ports from VM config (no hardcoding) ─────────────────────────
