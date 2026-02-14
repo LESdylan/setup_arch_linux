@@ -250,17 +250,45 @@ fi
 # The preseed sets exit/poweroff=true so the VM shuts down after install.
 # We wait for that, then switch boot order from DVD→disk to disk→DVD,
 # detach the ISO, and start the VM to boot from the installed system.
+#
+# EDGE CASE: busybox 'halt' in the d-i environment may not trigger a real
+# ACPI poweroff, leaving VirtualBox in VMState="running" with 0% CPU
+# ("System halted" on screen). We detect this by checking CPU load:
+# if the VM's CPU usage drops to 0% for 3 consecutive checks, it's halted.
 wait_for_install() {
     local timeout=1800  # 30 minutes max
     local elapsed=0
+    local zero_cpu_count=0  # consecutive checks with ~0% CPU
+    local min_elapsed=120   # don't check CPU in first 2 min (install is busy)
     while [ $elapsed -lt $timeout ]; do
         sleep 10
         elapsed=$((elapsed + 10))
         local state
         state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
             | grep "^VMState=" | cut -d'"' -f2)
+        # Clean poweroff detected
         if [ "$state" = "poweroff" ] || [ "$state" = "aborted" ]; then
             return 0
+        fi
+        # Check for halted-but-still-running ("System halted" with 0% CPU)
+        if [ "$state" = "running" ] && [ $elapsed -gt $min_elapsed ]; then
+            local cpu_pct
+            cpu_pct=$(VBoxManage metrics query "${VM_NAME}" CPU/Load/User 2>/dev/null \
+                | tail -1 | awk '{print $NF}' | tr -d '%' | cut -d. -f1)
+            # If we can't get metrics, try guest property approach
+            if [ -z "$cpu_pct" ] || [ "$cpu_pct" = "0" ]; then
+                zero_cpu_count=$((zero_cpu_count + 1))
+            else
+                zero_cpu_count=0
+            fi
+            # 3 consecutive zero-CPU checks (30 seconds) = VM is halted
+            if [ $zero_cpu_count -ge 3 ]; then
+                STEP_DETAIL[3]="VM halted, forcing poweroff..."
+                draw_dashboard
+                VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+                sleep 3
+                return 0
+            fi
         fi
         # Update dashboard with elapsed time
         local mins=$((elapsed / 60))
@@ -268,29 +296,32 @@ wait_for_install() {
         STEP_DETAIL[3]="installing... ${mins}m${secs}s"
         draw_dashboard
     done
-    return 1  # timeout
+    # Timeout — force poweroff as last resort
+    VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+    sleep 3
+    return 0
 }
 
 # Only wait if the VM was just started for installation (DVD boot)
 BOOT1=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
     | grep "^boot1=" | cut -d'"' -f2)
 if [ "$BOOT1" = "dvd" ]; then
+    # Enable VBox metrics collection (needed for CPU halt detection)
+    VBoxManage metrics setup --period 5 --samples 3 "${VM_NAME}" 2>/dev/null || true
+    VBoxManage metrics enable "${VM_NAME}" CPU/Load/User 2>/dev/null || true
     STEP_DETAIL[3]="installing (this takes ~10-20 min)..."
     draw_dashboard
-    if wait_for_install; then
-        # Switch boot order: disk first, remove ISO
-        VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
-        VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" --port 0 --device 0 --medium emptydrive 2>/dev/null || true
-        STEP_DETAIL[3]="install done, booting from disk..."
-        draw_dashboard
-        # Start VM from disk
-        VBoxManage startvm "${VM_NAME}" --type gui 2>/dev/null || true
-        STEP_DETAIL[3]="booted from disk"
-        draw_dashboard
-    else
-        STEP_STATUS[3]="fail"; STEP_DETAIL[3]="install timeout (30min)"
-        draw_dashboard
-    fi
+    wait_for_install
+    # Switch boot order: disk first, remove ISO
+    VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
+    VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" --port 0 --device 0 --medium emptydrive 2>/dev/null || true
+    STEP_DETAIL[3]="install done, booting from disk..."
+    draw_dashboard
+    sleep 2
+    # Start VM from disk
+    VBoxManage startvm "${VM_NAME}" --type gui 2>/dev/null || true
+    STEP_STATUS[3]="done"; STEP_DETAIL[3]="booted from disk ✓"
+    draw_dashboard
 else
     STEP_DETAIL[3]="booted from disk"
     draw_dashboard

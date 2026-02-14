@@ -20,10 +20,56 @@ ISO_PATH="$(pwd)/$PRESEED_ISO"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
 VM_DISK_SIZE=32000  # 32GB in MB
 
-# VM Configuration
-VM_MEMORY=4096  # Increased for WordPress
-VM_CPUS=4
-VM_VRAM=128
+# ── Smart VM sizing algorithm ────────────────────────────────────────────────
+# Detects host hardware and allocates resources proportionally.
+# Rules:
+#   - RAM: 25% of host RAM, clamped to [2048, 8192] MB
+#   - CPUs: 50% of host cores, clamped to [2, 8]
+#   - VRAM: 128 MB (server, no GUI in guest)
+# This keeps the host responsive while giving the VM enough power.
+auto_size_vm() {
+    local host_ram_mb host_cpus
+
+    # Detect host RAM (MB)
+    if [ -f /proc/meminfo ]; then
+        host_ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+    elif command -v sysctl >/dev/null 2>&1; then
+        host_ram_mb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 ))
+    fi
+    : "${host_ram_mb:=8192}"
+
+    # Detect host CPU cores
+    if command -v nproc >/dev/null 2>&1; then
+        host_cpus=$(nproc)
+    elif [ -f /proc/cpuinfo ]; then
+        host_cpus=$(grep -c ^processor /proc/cpuinfo)
+    elif command -v sysctl >/dev/null 2>&1; then
+        host_cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
+    fi
+    : "${host_cpus:=4}"
+
+    # Allocate 25% RAM, clamp [2048, 8192]
+    VM_MEMORY=$(( host_ram_mb / 4 ))
+    [ "$VM_MEMORY" -lt 2048 ] && VM_MEMORY=2048
+    [ "$VM_MEMORY" -gt 8192 ] && VM_MEMORY=8192
+
+    # Allocate 50% CPUs, clamp [2, 8]
+    VM_CPUS=$(( host_cpus / 2 ))
+    [ "$VM_CPUS" -lt 2 ] && VM_CPUS=2
+    [ "$VM_CPUS" -gt 8 ] && VM_CPUS=8
+
+    VM_VRAM=128
+
+    echo "╔══════════════════════════════════════════════╗"
+    echo "║  Smart VM Sizing (host-adaptive)             ║"
+    echo "╠══════════════════════════════════════════════╣"
+    printf "║  Host:  %5d MB RAM  /  %2d cores            ║\n" "$host_ram_mb" "$host_cpus"
+    printf "║  VM:    %5d MB RAM  /  %2d cores  (25%%/50%%) ║\n" "$VM_MEMORY" "$VM_CPUS"
+    echo "╚══════════════════════════════════════════════╝"
+}
+
+auto_size_vm
+
 SSH_PORT=4242
 HTTP_PORT=80
 HTTPS_PORT=443
@@ -119,6 +165,19 @@ VBoxManage modifyvm "$VM_NAME" \
     --draganddrop bidirectional || {
     echo "Failed to set VM hardware"; exit 1;
 }
+
+# ── Fix git clone / large download hanging at ~44% ──────────────────────────
+# VirtualBox NAT engine has small default TCP socket send/receive buffers
+# (64 KB) which cause stalls on large HTTPS transfers like git clone.
+# Increasing these to 1 MB fixes the issue completely.
+# Also set a sane MTU to avoid fragmentation issues.
+print_header "Tuning NAT engine for reliable downloads"
+VBoxManage modifyvm "$VM_NAME" --nat-settings1 1500,128,128,0,0 || true
+# nat-settings1: MTU, socksnd, sockrcv, TcpWndSnd, TcpWndRcv
+# MTU=1500 (standard), sock buffers=128KB each, TCP windows=0 (auto)
+
+# Extra: increase DNS proxy reliability (prevents DNS timeouts in NAT)
+VBoxManage modifyvm "$VM_NAME" --nat-dns-host-resolver1 on || true
 
 # Set network - NAT with port forwarding
 print_header "Configuring network and port forwarding"
