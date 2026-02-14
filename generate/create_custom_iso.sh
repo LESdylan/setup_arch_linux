@@ -83,25 +83,89 @@ fi
 # Make extracted files writable
 chmod -R u+w "$ISO_DIR"
 
-# Copy preseed file to ISO root
-echo "Copying preseed file..."
+# Copy preseed file to ISO root (fallback)
+echo "Copying preseed file to ISO root..."
 cp "$PRESEED_FILE" "$ISO_DIR/preseed.cfg"
 
+# ── CRITICAL: Inject preseed.cfg into the initrd ────────────────────────────
+# The Debian installer auto-loads preseed.cfg from the initrd root BEFORE
+# the CD-ROM is mounted. This is the ONLY reliable way to preseed with
+# preseed/file — the /cdrom path fails because the CD isn't mounted yet.
+# Method: create a small cpio archive with preseed.cfg, gzip it, and
+# append it to initrd.gz. The kernel processes concatenated cpio archives.
+echo "Injecting preseed.cfg into initrd..."
+INITRD="$ISO_DIR/install.amd/initrd.gz"
+if [ -f "$INITRD" ]; then
+    INITRD_ABS="$(cd "$(dirname "$INITRD")" && pwd)/$(basename "$INITRD")"
+    INJECT_DIR=$(mktemp -d)
+    cp "$PRESEED_FILE" "$INJECT_DIR/preseed.cfg"
+    ( cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2>/dev/null | gzip >> "$INITRD_ABS" )
+    rm -rf "$INJECT_DIR"
+    echo "  ✓ preseed.cfg injected into install.amd/initrd.gz"
+else
+    echo "  ✗ WARNING: $INITRD not found — preseed injection skipped"
+fi
+
+# Also inject into GTK initrd if it exists
+INITRD_GTK="$ISO_DIR/install.amd/gtk/initrd.gz"
+if [ -f "$INITRD_GTK" ]; then
+    INITRD_GTK_ABS="$(cd "$(dirname "$INITRD_GTK")" && pwd)/$(basename "$INITRD_GTK")"
+    INJECT_DIR=$(mktemp -d)
+    cp "$PRESEED_FILE" "$INJECT_DIR/preseed.cfg"
+    ( cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2>/dev/null | gzip >> "$INITRD_GTK_ABS" )
+    rm -rf "$INJECT_DIR"
+    echo "  ✓ preseed.cfg injected into install.amd/gtk/initrd.gz"
+fi
+
 # Edit boot menu for BIOS (ISOLINUX)
+# The default Debian ISO has: isolinux.cfg → menu.cfg → gtk.cfg + txt.cfg
+# gtk.cfg sets "menu default" on Graphical Install, stealing the default.
+# isolinux.cfg has "timeout 0" (wait forever). We must fix ALL of them.
 echo "Updating BIOS boot menu (isolinux)..."
-ISOLINUX_CFG="$ISO_DIR/isolinux/txt.cfg"
-if [ -f "$ISOLINUX_CFG" ]; then
-    cat > "$ISOLINUX_CFG" << 'EOF'
+
+# 1. isolinux.cfg — set a 1-second timeout so it auto-boots
+ISOLINUX_MAIN="$ISO_DIR/isolinux/isolinux.cfg"
+if [ -f "$ISOLINUX_MAIN" ]; then
+    cat > "$ISOLINUX_MAIN" << 'EOF'
+# D-I config version 2.0
+path 
+include menu.cfg
+default vesamenu.c32
+prompt 0
+timeout 10
+EOF
+    echo "  ✓ isolinux.cfg  → timeout 10 (1s)"
+fi
+
+# 2. txt.cfg — our automated install entry (marked as menu default)
+# Preseed is inside the initrd (auto-detected by d-i). No preseed/file= needed.
+# locale/country/keymap on cmdline as belt-and-suspenders for pre-preseed Qs.
+ISOLINUX_TXT="$ISO_DIR/isolinux/txt.cfg"
+if [ -f "$ISOLINUX_TXT" ]; then
+    cat > "$ISOLINUX_TXT" << 'EOF'
 default install
 label install
-    menu label ^Install
+    menu label ^Automated Install
+    menu default
     kernel /install.amd/vmlinuz
-    append auto=true priority=critical preseed/file=/cdrom/preseed.cfg vga=788 initrd=/install.amd/initrd.gz --- quiet
+    append auto=true priority=critical locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 initrd=/install.amd/initrd.gz --- quiet
 EOF
-    echo "✓ BIOS boot menu updated"
-else
-    echo "Warning: $ISOLINUX_CFG not found"
+    echo "  ✓ txt.cfg       → Automated Install (default)"
 fi
+
+# 3. gtk.cfg — remove "menu default" from Graphical Install
+ISOLINUX_GTK="$ISO_DIR/isolinux/gtk.cfg"
+if [ -f "$ISOLINUX_GTK" ]; then
+    cat > "$ISOLINUX_GTK" << 'EOF'
+label installgui
+    menu label ^Graphical install
+    kernel /install.amd/vmlinuz
+    append vga=788 initrd=/install.amd/gtk/initrd.gz --- quiet
+EOF
+    echo "  ✓ gtk.cfg       → removed menu default"
+fi
+
+echo "✓ BIOS boot menu updated"
 
 # Edit boot menu for EFI (GRUB)
 echo "Updating EFI boot menu (GRUB)..."
@@ -117,7 +181,7 @@ set timeout=1
 
 menuentry 'Automated Install' {
     set background_color=black
-    linux    /install.amd/vmlinuz auto=true priority=critical preseed/file=/cdrom/preseed.cfg vga=788 --- quiet
+    linux    /install.amd/vmlinuz auto=true priority=critical locale=en_US.UTF-8 language=en country=ES keymap=es hostname=dlesieur domain= vga=788 --- quiet
     initrd   /install.amd/initrd.gz
 }
 

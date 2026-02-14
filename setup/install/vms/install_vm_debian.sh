@@ -32,6 +32,41 @@ DOCKER_REGISTRY_PORT=5000
 MARIADB_PORT=3306
 REDIS_PORT=6379
 
+# ── Dynamic port allocation (find free host ports) ───────────────────────────
+# Check if a host port is available (no sudo required)
+is_port_free() {
+    local port="$1"
+    if (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
+        return 1  # port is taken
+    fi
+    return 0  # port is free
+}
+
+# Find a free port starting from a preferred one, incrementing until one works
+find_free_port() {
+    local port="$1"
+    local max_tries=100
+    local i=0
+    while [ "$i" -lt "$max_tries" ]; do
+        if is_port_free "$port"; then
+            echo "$port"
+            return 0
+        fi
+        port=$((port + 1))
+        i=$((i + 1))
+    done
+    echo "Error: Could not find a free port starting from $1" >&2
+    return 1
+}
+
+# Resolve actual host ports (may differ from defaults if ports are taken)
+HOST_SSH_PORT=$(find_free_port "$SSH_PORT")
+HOST_HTTP_PORT=$(find_free_port 8080)
+HOST_HTTPS_PORT=$(find_free_port 8443)
+HOST_DOCKER_PORT=$(find_free_port 5000)
+HOST_MARIADB_PORT=$(find_free_port 3306)
+HOST_REDIS_PORT=$(find_free_port 6379)
+
 # Create VM folders if they don't exist
 mkdir -p "$VM_PATH/$VM_NAME"
 
@@ -91,33 +126,30 @@ VBoxManage modifyvm "$VM_NAME" --nic1 nat || {
     echo "Failed to set VM network"; exit 1;
 }
 
-# Set up NAT port forwarding for SSH (host:4242 -> guest:4242)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "ssh4242,tcp,,${SSH_PORT},,${SSH_PORT}" || {
+# Set up NAT port forwarding (using dynamically resolved free host ports)
+echo "  SSH:      host:${HOST_SSH_PORT} -> guest:${SSH_PORT}"
+echo "  HTTP:     host:${HOST_HTTP_PORT} -> guest:${HTTP_PORT}"
+echo "  HTTPS:    host:${HOST_HTTPS_PORT} -> guest:${HTTPS_PORT}"
+echo "  Docker:   host:${HOST_DOCKER_PORT} -> guest:${DOCKER_REGISTRY_PORT}"
+echo "  MariaDB:  host:${HOST_MARIADB_PORT} -> guest:${MARIADB_PORT}"
+echo "  Redis:    host:${HOST_REDIS_PORT} -> guest:${REDIS_PORT}"
+
+VBoxManage modifyvm "$VM_NAME" --natpf1 "ssh,tcp,,${HOST_SSH_PORT},,${SSH_PORT}" || {
     echo "Failed to set up NAT port forwarding for SSH"; exit 1;
 }
-
-# Set up NAT port forwarding for HTTP (host:8080 -> guest:80)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "http8080,tcp,,8080,,${HTTP_PORT}" || {
+VBoxManage modifyvm "$VM_NAME" --natpf1 "http,tcp,,${HOST_HTTP_PORT},,${HTTP_PORT}" || {
     echo "Failed to set up NAT port forwarding for HTTP"; exit 1;
 }
-
-# Set up NAT port forwarding for HTTPS (host:8443 -> guest:443)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "https8443,tcp,,8443,,${HTTPS_PORT}" || {
+VBoxManage modifyvm "$VM_NAME" --natpf1 "https,tcp,,${HOST_HTTPS_PORT},,${HTTPS_PORT}" || {
     echo "Failed to set up NAT port forwarding for HTTPS"; exit 1;
 }
-
-# Set up NAT port forwarding for Docker Registry (host:5000 -> guest:5000)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "docker5000,tcp,,5000,,${DOCKER_REGISTRY_PORT}" || {
+VBoxManage modifyvm "$VM_NAME" --natpf1 "docker,tcp,,${HOST_DOCKER_PORT},,${DOCKER_REGISTRY_PORT}" || {
     echo "Failed to set up NAT port forwarding for Docker Registry"; exit 1;
 }
-
-# Set up NAT port forwarding for MariaDB (host:3306 -> guest:3306)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "mariadb3306,tcp,,3306,,${MARIADB_PORT}" || {
+VBoxManage modifyvm "$VM_NAME" --natpf1 "mariadb,tcp,,${HOST_MARIADB_PORT},,${MARIADB_PORT}" || {
     echo "Failed to set up NAT port forwarding for MariaDB"; exit 1;
 }
-
-# Set up NAT port forwarding for Redis (host:6379 -> guest:6379)
-VBoxManage modifyvm "$VM_NAME" --natpf1 "redis6379,tcp,,6379,,${REDIS_PORT}" || {
+VBoxManage modifyvm "$VM_NAME" --natpf1 "redis,tcp,,${HOST_REDIS_PORT},,${REDIS_PORT}" || {
     echo "Failed to set up NAT port forwarding for Redis"; exit 1;
 }
 # Create disk if it does not exist
@@ -158,19 +190,19 @@ VBoxManage modifyvm "$VM_NAME" --nested-hw-virt on || true
 print_header "VM Setup Complete"
 echo ""
 echo "Port Forwarding Configuration:"
-echo "  - SSH:      Host 127.0.0.1:${SSH_PORT} -> Guest 0.0.0.0:${SSH_PORT}"
-echo "  - HTTP:     Host 127.0.0.1:8080 -> Guest 0.0.0.0:${HTTP_PORT}"
-echo "  - HTTPS:    Host 127.0.0.1:8443 -> Guest 0.0.0.0:${HTTPS_PORT}"
-echo "  - Docker:   Host 127.0.0.1:5000 -> Guest 0.0.0.0:${DOCKER_REGISTRY_PORT}"
-echo "  - MariaDB:  Host 127.0.0.1:3306 -> Guest 0.0.0.0:${MARIADB_PORT}"
-echo "  - Redis:    Host 127.0.0.1:6379 -> Guest 0.0.0.0:${REDIS_PORT}"
+echo "  - SSH:      Host 127.0.0.1:${HOST_SSH_PORT} -> Guest :${SSH_PORT}"
+echo "  - HTTP:     Host 127.0.0.1:${HOST_HTTP_PORT} -> Guest :${HTTP_PORT}"
+echo "  - HTTPS:    Host 127.0.0.1:${HOST_HTTPS_PORT} -> Guest :${HTTPS_PORT}"
+echo "  - Docker:   Host 127.0.0.1:${HOST_DOCKER_PORT} -> Guest :${DOCKER_REGISTRY_PORT}"
+echo "  - MariaDB:  Host 127.0.0.1:${HOST_MARIADB_PORT} -> Guest :${MARIADB_PORT}"
+echo "  - Redis:    Host 127.0.0.1:${HOST_REDIS_PORT} -> Guest :${REDIS_PORT}"
 echo ""
 echo "Next Steps:"
 echo "  1. Start the VM:"
 echo "     VBoxManage startvm \"$VM_NAME\" --type headless"
 echo ""
 echo "  2. SSH into your VM from host:"
-echo "     ssh -p ${SSH_PORT} dlesieur@127.0.0.1"
+echo "     ssh -p ${HOST_SSH_PORT} dlesieur@127.0.0.1"
 echo ""
 echo "  3. Install Docker and Docker Compose:"
 echo "     curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh"
@@ -182,7 +214,7 @@ echo "  4. Clone Inception project and run docker-compose:"
 echo "     cd ~/inception && docker-compose up -d"
 echo ""
 echo "  5. Access services from host:"
-echo "     - WordPress:      http://127.0.0.1:8080"
-echo "     - MariaDB:        mysql -h 127.0.0.1 -P 3306 -u root -p"
-echo "     - Docker Registry: http://127.0.0.1:5000"
+echo "     - WordPress:      http://127.0.0.1:${HOST_HTTP_PORT}"
+echo "     - MariaDB:        mysql -h 127.0.0.1 -P ${HOST_MARIADB_PORT} -u root -p"
+echo "     - Docker Registry: http://127.0.0.1:${HOST_DOCKER_PORT}"
 echo ""

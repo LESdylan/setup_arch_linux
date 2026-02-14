@@ -216,7 +216,20 @@ else
 fi
 
 # Step 3 — VM creation
+# Check VM exists AND its disk is intact (not just registered)
+VM_OK=false
 if VBoxManage showvminfo "${VM_NAME}" >/dev/null 2>&1; then
+    VM_VDI=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+        | grep '"SATA Controller-0-0"' | cut -d'"' -f4)
+    if [ -n "$VM_VDI" ] && [ -f "$VM_VDI" ]; then
+        VM_OK=true
+    else
+        # Stale VM registration — disk is missing, clean it up
+        VBoxManage unregistervm "${VM_NAME}" --delete 2>/dev/null || true
+    fi
+fi
+
+if [ "$VM_OK" = true ]; then
     STEP_STATUS[2]="skip"; STEP_DETAIL[2]="${VM_NAME}"; draw_dashboard
 else
     run_step 2 ${MAKE_CMD} --no-print-directory setup_vm
@@ -232,6 +245,42 @@ else
     run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
     STEP_DETAIL[3]="launched"; draw_dashboard
 fi
+
+# ── Read actual ports from VM config (no hardcoding) ─────────────────────────
+get_vm_port() {
+    # Extract host port from a NAT forwarding rule
+    # Rule format: "name,tcp,,HOSTPORT,,GUESTPORT"
+    local name="$1"
+    local line
+    line=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+        | grep "^Forwarding" | grep "\"${name}")
+    # If searching for "http", exclude "https" matches
+    if [ "$name" = "http" ]; then
+        line=$(echo "$line" | grep -v "\"https")
+    fi
+    echo "$line" | head -1 | cut -d',' -f4
+}
+
+# Find a free port for the preseed HTTP server (not used by VM or system)
+find_free_port() {
+    local port="$1"
+    local max=100 i=0
+    while [ "$i" -lt "$max" ]; do
+        if ! (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
+            echo "$port"; return 0
+        fi
+        port=$((port + 1)); i=$((i + 1))
+    done
+    echo "$1"  # fallback
+}
+
+P_SSH=$(get_vm_port ssh)
+P_HTTP=$(get_vm_port http)
+P_HTTPS=$(get_vm_port https)
+P_DOCKER=$(get_vm_port docker)
+P_MARIADB=$(get_vm_port mariadb)
+P_REDIS=$(get_vm_port redis)
+P_PRESEED=$(find_free_port 8080)
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 HOST_IP=$(get_host_ip)
@@ -258,19 +307,24 @@ row "    ${YLW}2.${RST} Log in:  ${GRN}dlesieur${RST} / ${GRN}tempuser123${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Connect from Host${RST}"
-row "    ${DIM}SSH${RST}        ${BLD}ssh -p 4242 dlesieur@127.0.0.1${RST}"
-row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:8080/wordpress${RST}"
+row "    ${DIM}SSH${RST}        ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
+row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Preseed via HTTP (alternative)${RST}"
-row "    ${DIM}Your host IP:${RST}  ${GRN}${HOST_IP}${RST}"
-row "    ${DIM}Find it with:${RST}  ${BLD}ip route get 1.1.1.1 | awk '{print \$7}'${RST}"
+row "    ${DIM}Host LAN IP:${RST}   ${GRN}${HOST_IP}${RST}"
+row "    ${DIM}NAT gateway:${RST}   ${GRN}10.0.2.2${RST}  ${DIM}(host seen from VM)${RST}"
 blank
-row "    ${DIM}Serve preseed:${RST}"
-row "      ${BLD}cd preseeds && python3 -m http.server 8080${RST}"
+row "    ${DIM}Serve preseed on your host:${RST}"
+row "      ${BLD}cd preseeds && python3 -m http.server ${P_PRESEED}${RST}"
 blank
 row "    ${DIM}Use this URL in the Debian installer:${RST}"
-row "      ${BLD}http://${HOST_IP}:8080/preseed.cfg${RST}"
+row "      ${BLD}http://10.0.2.2:${P_PRESEED}/preseed.cfg${RST}"
+blank
+mid
+row "  ${BLD}${WHT}▸ Port Forwarding (VM NAT)${RST}"
+row "    ${DIM}SSH${RST}      ${WHT}:${P_SSH}${RST}    ${DIM}HTTP${RST}   ${WHT}:${P_HTTP}${RST}    ${DIM}HTTPS${RST}  ${WHT}:${P_HTTPS}${RST}"
+row "    ${DIM}Docker${RST}   ${WHT}:${P_DOCKER}${RST}    ${DIM}MariaDB${RST} ${WHT}:${P_MARIADB}${RST}   ${DIM}Redis${RST}  ${WHT}:${P_REDIS}${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Useful Commands${RST}"
