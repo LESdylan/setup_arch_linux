@@ -78,6 +78,10 @@ DOCKER_REGISTRY_PORT=5000
 MARIADB_PORT=3306
 REDIS_PORT=6379
 
+# Vite Gourmand / ft_transcendence development ports
+FRONTEND_PORT=5173
+BACKEND_PORT=3000
+
 # ── Dynamic port allocation (find free host ports) ───────────────────────────
 # Check if a host port is available (no sudo required)
 is_port_free() {
@@ -112,6 +116,8 @@ HOST_HTTPS_PORT=$(find_free_port 8443)
 HOST_DOCKER_PORT=$(find_free_port 5000)
 HOST_MARIADB_PORT=$(find_free_port 3306)
 HOST_REDIS_PORT=$(find_free_port 6379)
+HOST_FRONTEND_PORT=$(find_free_port "$FRONTEND_PORT")
+HOST_BACKEND_PORT=$(find_free_port "$BACKEND_PORT")
 
 # Create VM folders if they don't exist
 mkdir -p "$VM_PATH/$VM_NAME"
@@ -192,6 +198,8 @@ echo "  HTTPS:    host:${HOST_HTTPS_PORT} -> guest:${HTTPS_PORT}"
 echo "  Docker:   host:${HOST_DOCKER_PORT} -> guest:${DOCKER_REGISTRY_PORT}"
 echo "  MariaDB:  host:${HOST_MARIADB_PORT} -> guest:${MARIADB_PORT}"
 echo "  Redis:    host:${HOST_REDIS_PORT} -> guest:${REDIS_PORT}"
+echo "  Frontend: host:${HOST_FRONTEND_PORT} -> guest:${FRONTEND_PORT}"
+echo "  Backend:  host:${HOST_BACKEND_PORT} -> guest:${BACKEND_PORT}"
 
 VBoxManage modifyvm "$VM_NAME" --natpf1 "ssh,tcp,,${HOST_SSH_PORT},,${SSH_PORT}" || {
     echo "Failed to set up NAT port forwarding for SSH"; exit 1;
@@ -210,6 +218,12 @@ VBoxManage modifyvm "$VM_NAME" --natpf1 "mariadb,tcp,,${HOST_MARIADB_PORT},,${MA
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "redis,tcp,,${HOST_REDIS_PORT},,${REDIS_PORT}" || {
     echo "Failed to set up NAT port forwarding for Redis"; exit 1;
+}
+VBoxManage modifyvm "$VM_NAME" --natpf1 "frontend,tcp,,${HOST_FRONTEND_PORT},,${FRONTEND_PORT}" || {
+    echo "Failed to set up NAT port forwarding for Frontend"; exit 1;
+}
+VBoxManage modifyvm "$VM_NAME" --natpf1 "backend,tcp,,${HOST_BACKEND_PORT},,${BACKEND_PORT}" || {
+    echo "Failed to set up NAT port forwarding for Backend"; exit 1;
 }
 # Create disk if it does not exist
 if [ ! -f "$VM_DISK_PATH" ]; then
@@ -249,12 +263,14 @@ VBoxManage modifyvm "$VM_NAME" --nested-hw-virt on || true
 print_header "VM Setup Complete"
 echo ""
 echo "Port Forwarding Configuration:"
-echo "  - SSH:      Host 127.0.0.1:${HOST_SSH_PORT} -> Guest :${SSH_PORT}"
-echo "  - HTTP:     Host 127.0.0.1:${HOST_HTTP_PORT} -> Guest :${HTTP_PORT}"
-echo "  - HTTPS:    Host 127.0.0.1:${HOST_HTTPS_PORT} -> Guest :${HTTPS_PORT}"
-echo "  - Docker:   Host 127.0.0.1:${HOST_DOCKER_PORT} -> Guest :${DOCKER_REGISTRY_PORT}"
-echo "  - MariaDB:  Host 127.0.0.1:${HOST_MARIADB_PORT} -> Guest :${MARIADB_PORT}"
-echo "  - Redis:    Host 127.0.0.1:${HOST_REDIS_PORT} -> Guest :${REDIS_PORT}"
+echo "  - SSH:       Host 127.0.0.1:${HOST_SSH_PORT} -> Guest :${SSH_PORT}"
+echo "  - HTTP:      Host 127.0.0.1:${HOST_HTTP_PORT} -> Guest :${HTTP_PORT}"
+echo "  - HTTPS:     Host 127.0.0.1:${HOST_HTTPS_PORT} -> Guest :${HTTPS_PORT}"
+echo "  - Frontend:  Host 127.0.0.1:${HOST_FRONTEND_PORT} -> Guest :${FRONTEND_PORT}"
+echo "  - Backend:   Host 127.0.0.1:${HOST_BACKEND_PORT} -> Guest :${BACKEND_PORT}"
+echo "  - Docker:    Host 127.0.0.1:${HOST_DOCKER_PORT} -> Guest :${DOCKER_REGISTRY_PORT}"
+echo "  - MariaDB:   Host 127.0.0.1:${HOST_MARIADB_PORT} -> Guest :${MARIADB_PORT}"
+echo "  - Redis:     Host 127.0.0.1:${HOST_REDIS_PORT} -> Guest :${REDIS_PORT}"
 echo ""
 echo "Next Steps:"
 echo "  1. Start the VM:"
@@ -263,17 +279,13 @@ echo ""
 echo "  2. SSH into your VM from host:"
 echo "     ssh -p ${HOST_SSH_PORT} dlesieur@127.0.0.1"
 echo ""
-echo "  3. Install Docker and Docker Compose:"
-echo "     curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh"
-echo "     sudo usermod -aG docker dlesieur"
-echo "     sudo curl -L \"https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-\$(uname -s)-\$(uname -m)\" -o /usr/local/bin/docker-compose"
-echo "     sudo chmod +x /usr/local/bin/docker-compose"
+echo "  3. Access Vite Gourmand from host:"
+echo "     Frontend:  http://127.0.0.1:${HOST_FRONTEND_PORT}"
+echo "     Backend:   http://127.0.0.1:${HOST_BACKEND_PORT}/api"
+echo "     API Docs:  http://127.0.0.1:${HOST_BACKEND_PORT}/api/docs"
 echo ""
-echo "  4. Clone Inception project and run docker-compose:"
-echo "     cd ~/inception && docker-compose up -d"
-echo ""
-echo "  5. Access services from host:"
-echo "     - WordPress:      http://127.0.0.1:${HOST_HTTP_PORT}"
-echo "     - MariaDB:        mysql -h 127.0.0.1 -P ${HOST_MARIADB_PORT} -u root -p"
-echo "     - Docker Registry: http://127.0.0.1:${HOST_DOCKER_PORT}"
+echo "  4. Other services from host:"
+echo "     WordPress:       http://127.0.0.1:${HOST_HTTP_PORT}/wordpress"
+echo "     MariaDB:         mysql -h 127.0.0.1 -P ${HOST_MARIADB_PORT} -u root -p"
+echo "     Docker Registry: http://127.0.0.1:${HOST_DOCKER_PORT}"
 echo ""

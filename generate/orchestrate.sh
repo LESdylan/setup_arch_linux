@@ -361,6 +361,8 @@ P_HTTPS=$(get_vm_port https)
 P_DOCKER=$(get_vm_port docker)
 P_MARIADB=$(get_vm_port mariadb)
 P_REDIS=$(get_vm_port redis)
+P_FRONTEND=$(get_vm_port frontend)
+P_BACKEND=$(get_vm_port backend)
 P_PRESEED=$(find_free_port 8080)
 
 # ── Summary ──────────────────────────────────────────────────────────────────
@@ -392,6 +394,12 @@ row "    ${DIM}SSH${RST}        ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
 row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
 blank
 mid
+row "  ${BLD}${WHT}▸ Vite Gourmand (Dev Servers)${RST}"
+row "    ${DIM}🖥️  Frontend${RST}  ${BLD}http://127.0.0.1:${P_FRONTEND}${RST}"
+row "    ${DIM}🔧 Backend${RST}   ${BLD}http://127.0.0.1:${P_BACKEND}/api${RST}"
+row "    ${DIM}📚 API Docs${RST}  ${BLD}http://127.0.0.1:${P_BACKEND}/api/docs${RST}"
+blank
+mid
 row "  ${BLD}${WHT}▸ Preseed via HTTP (alternative)${RST}"
 row "    ${DIM}Host LAN IP:${RST}   ${GRN}${HOST_IP}${RST}"
 row "    ${DIM}NAT gateway:${RST}   ${GRN}10.0.2.2${RST}  ${DIM}(host seen from VM)${RST}"
@@ -404,8 +412,9 @@ row "      ${BLD}http://10.0.2.2:${P_PRESEED}/preseed.cfg${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Port Forwarding (VM NAT)${RST}"
-row "    ${DIM}SSH${RST}      ${WHT}:${P_SSH}${RST}    ${DIM}HTTP${RST}   ${WHT}:${P_HTTP}${RST}    ${DIM}HTTPS${RST}  ${WHT}:${P_HTTPS}${RST}"
-row "    ${DIM}Docker${RST}   ${WHT}:${P_DOCKER}${RST}    ${DIM}MariaDB${RST} ${WHT}:${P_MARIADB}${RST}   ${DIM}Redis${RST}  ${WHT}:${P_REDIS}${RST}"
+row "    ${DIM}SSH${RST}      ${WHT}:${P_SSH}${RST}    ${DIM}HTTP${RST}     ${WHT}:${P_HTTP}${RST}    ${DIM}HTTPS${RST}    ${WHT}:${P_HTTPS}${RST}"
+row "    ${DIM}Frontend${RST} ${WHT}:${P_FRONTEND}${RST}  ${DIM}Backend${RST}  ${WHT}:${P_BACKEND}${RST}  ${DIM}Docker${RST}   ${WHT}:${P_DOCKER}${RST}"
+row "    ${DIM}MariaDB${RST}  ${WHT}:${P_MARIADB}${RST}  ${DIM}Redis${RST}    ${WHT}:${P_REDIS}${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Useful Commands${RST}"

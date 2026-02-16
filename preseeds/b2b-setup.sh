@@ -81,12 +81,14 @@ sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/ssh
 systemctl enable ssh || true
 echo "[OK] SSH configured on port 4242"
 
-### ─── 6. UFW — only port 4242 + web ports ──────────────────────────────────
+### ─── 6. UFW — only port 4242 + web ports + dev ports ───────────────────────
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 4242/tcp comment 'SSH'
 ufw allow 80/tcp comment 'HTTP'
 ufw allow 443/tcp comment 'HTTPS'
+ufw allow 5173/tcp comment 'Vite Frontend'
+ufw allow 3000/tcp comment 'Backend API'
 echo y | ufw enable
 echo "[OK] UFW firewall active"
 
