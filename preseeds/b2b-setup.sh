@@ -202,6 +202,29 @@ systemctl daemon-reload || true
 systemctl restart ssh || true
 echo "[OK] SSH configured on port 4242 (keepalives + NAT keepalive + sshd watchdog)"
 
+### ─── 5b. SSH key auth — bake host's public key for passwordless login ──────
+# This enables VS Code Remote SSH to reconnect instantly without password prompts.
+# The key is from the host machine that runs `make all`.
+HOST_PUBKEY_DIR="/home/dlesieur/.ssh"
+mkdir -p "$HOST_PUBKEY_DIR"
+chmod 700 "$HOST_PUBKEY_DIR"
+chown dlesieur:dlesieur "$HOST_PUBKEY_DIR"
+
+# The orchestrator will inject the actual key at ISO creation time.
+# If no key was injected, leave authorized_keys empty (password auth still works).
+if [ -f /cdrom/host_ssh_pubkey ]; then
+    cat /cdrom/host_ssh_pubkey >> "$HOST_PUBKEY_DIR/authorized_keys"
+    chmod 600 "$HOST_PUBKEY_DIR/authorized_keys"
+    chown dlesieur:dlesieur "$HOST_PUBKEY_DIR/authorized_keys"
+    echo "[OK] Host SSH public key installed for dlesieur"
+else
+    echo "[WARN] No host SSH public key found — password auth only"
+fi
+
+# Ensure PubkeyAuthentication is enabled in sshd_config
+sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+grep -q '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
+
 ### ─── 6. UFW — only port 4242 + web ports + dev ports ───────────────────────
 ufw default deny incoming
 ufw default allow outgoing
@@ -393,7 +416,7 @@ cat > /etc/motd << 'MOTDEOF'
   ╠═══════════════════════════════════════════════════════╣
   ║  🔒 tmux auto-attach is ON                            ║
   ║                                                       ║
-  ║  Your session runs inside tmux and survives SSH drops. ║
+  ║  Your session runs inside tmux and survives SSH drops.║
   ║  If disconnected, just reconnect — you'll be right    ║
   ║  back where you left off.                             ║
   ║                                                       ║

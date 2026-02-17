@@ -406,7 +406,34 @@ get_vm_port() {
         | grep "^Forwarding" | grep "\"${name}")
     # If searching for "http", exclude "https" matches
     if [ "$name" = "http" ]; then
-        line=$(echo "$line" | grep -v "\"https")
+        line=$(echo "$line" | grep -v "\"https")c1r1s6% cat /home/dlesieur/.config/Code/User/settings.json
+{
+    "inlineChat.hideOnRequest": true,
+    "workbench.colorTheme": "GitHub Dark High Contrast",
+    "editor.dragAndDrop": false,
+    "editor.definitionLinkOpensInPeek": true,
+    "editor.insertSpaces": false,
+    "files.autoSave": "afterDelay",
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": true,
+        "scminput": false,
+        "c": false
+    },
+    "explorer.confirmDelete": false,
+    "makefile.configureOnOpen": true,
+    "explorer.confirmDragAndDrop": false,
+    "remote.SSH.useLocalServer": false,
+    "remote.SSH.enableDynamicForwarding": false,
+    "remote.SSH.useExecServer": false,
+    "remote.SSH.connectTimeout": 60,
+    "remote.SSH.showLoginTerminal": true,
+    "remote.SSH.remotePlatform": {
+        "b2b": "linux"
+    }
+}%            
     fi
     echo "$line" | head -1 | cut -d',' -f4
 }
@@ -486,7 +513,54 @@ SSHEOF
     echo "    → 'ssh b2b' connects directly to the VM"
 }
 
+# ── VS Code Remote SSH settings (fix stale SOCKS proxy + banner timeout) ────
+setup_vscode_remote_ssh() {
+    local vscode_settings="$HOME/.config/Code/User/settings.json"
+    [ ! -f "$vscode_settings" ] && return 0
+
+    # Use python3 to safely merge JSON settings
+    python3 -c "
+import json, sys
+try:
+    with open('$vscode_settings', 'r') as f:
+        s = json.load(f)
+except:
+    s = {}
+
+# VS Code Remote SSH uses '-D port' (SOCKS dynamic forwarding) by default.
+# VirtualBox NAT silently drops the SOCKS proxy state after idle periods,
+# causing 'Connection timed out during banner exchange' on reconnect.
+# useLocalServer=false → Terminal Mode: each window gets its own SSH connection
+# enableDynamicForwarding=false → no SOCKS proxy, direct TCP forwarding only
+# useExecServer=false → simpler bootstrap, less state to go stale
+s['remote.SSH.useLocalServer'] = False
+s['remote.SSH.enableDynamicForwarding'] = False
+s['remote.SSH.useExecServer'] = False
+s['remote.SSH.connectTimeout'] = 60
+s['remote.SSH.showLoginTerminal'] = True
+
+with open('$vscode_settings', 'w') as f:
+    json.dump(s, f, indent=4)
+" 2>/dev/null && echo "  ✓ VS Code Remote SSH settings configured (Terminal Mode, no SOCKS proxy)" || true
+
+    # Clean stale server data that causes 'Running server is stale' errors
+    rm -rf "$HOME/.config/Code/User/globalStorage/ms-vscode-remote.remote-ssh/vscode-ssh-host-"* 2>/dev/null
+}
+
+# ── SSH key auth (enables instant reconnection without password prompts) ─────
+setup_ssh_key_auth() {
+    local ssh_dir="$HOME/.ssh"
+    # Generate key if none exists
+    if [ ! -f "$ssh_dir/id_rsa.pub" ] && [ ! -f "$ssh_dir/id_ed25519.pub" ]; then
+        ssh-keygen -t ed25519 -f "$ssh_dir/id_ed25519" -N "" -q
+        echo "  ✓ SSH key pair generated"
+    fi
+    echo "  ℹ SSH key will be auto-copied to VM after first boot (via orchestrator wait loop)"
+}
+
 setup_host_ssh_config 2>/dev/null || true
+setup_vscode_remote_ssh 2>/dev/null || true
+setup_ssh_key_auth 2>/dev/null || true
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 HOST_IP=$(get_host_ip)

@@ -98,6 +98,23 @@ for SCRIPT in b2b-setup.sh monitoring.sh first-boot-setup.sh; do
     fi
 done
 
+# Copy host's SSH public key into the ISO so b2b-setup.sh can install it
+# This enables passwordless SSH from the host right after first boot
+echo "Injecting host SSH public key..."
+HOST_PUBKEY=""
+for kf in "$HOME/.ssh/id_ed25519.pub" "$HOME/.ssh/id_rsa.pub"; do
+    if [ -f "$kf" ]; then
+        HOST_PUBKEY="$kf"
+        break
+    fi
+done
+if [ -n "$HOST_PUBKEY" ]; then
+    cp "$HOST_PUBKEY" "$ISO_DIR/host_ssh_pubkey"
+    echo "  ✓ Host SSH public key baked into ISO ($(basename "$HOST_PUBKEY"))"
+else
+    echo "  ℹ No host SSH key found — VM will use password auth only"
+fi
+
 # ── CRITICAL: Inject preseed.cfg into the initrd ────────────────────────────
 # The Debian installer auto-loads preseed.cfg from the initrd root BEFORE
 # the CD-ROM is mounted. This is the ONLY reliable way to preseed with
