@@ -71,8 +71,14 @@ echo "[OK] Hostname set to dlesieur42"
 
 ### ─── 4. Groups & user ─────────────────────────────────────────────────────
 groupadd user42 2>/dev/null || true
-usermod -aG sudo,user42 dlesieur
-echo "[OK] User dlesieur in groups: sudo, user42"
+# Pre-create docker group NOW so dlesieur has it from the very first login.
+# Docker is installed later by first-boot-setup.sh (needs systemd + network),
+# but the GROUP must exist before the first SSH/VS Code session or the VS Code
+# server process inherits a stale group list without docker → "permission denied"
+# on /var/run/docker.sock. Docker's postinst will reuse this group.
+groupadd -f docker 2>/dev/null || true
+usermod -aG sudo,user42,docker dlesieur
+echo "[OK] User dlesieur in groups: sudo, user42, docker"
 
 ### ─── 5. SSH — port 4242, no root login ─────────────────────────────────────
 sed -i 's/^#*Port .*/Port 4242/' /etc/ssh/sshd_config
@@ -211,14 +217,15 @@ chmod 700 "$HOST_PUBKEY_DIR"
 chown dlesieur:dlesieur "$HOST_PUBKEY_DIR"
 
 # The orchestrator will inject the actual key at ISO creation time.
-# If no key was injected, leave authorized_keys empty (password auth still works).
-if [ -f /cdrom/host_ssh_pubkey ]; then
-    cat /cdrom/host_ssh_pubkey >> "$HOST_PUBKEY_DIR/authorized_keys"
+# late_command copies it from /cdrom/host_ssh_pubkey to /target/tmp/host_ssh_pubkey
+# Since b2b-setup.sh runs inside in-target (chroot), the file is at /tmp/
+if [ -f /tmp/host_ssh_pubkey ]; then
+    cat /tmp/host_ssh_pubkey >> "$HOST_PUBKEY_DIR/authorized_keys"
     chmod 600 "$HOST_PUBKEY_DIR/authorized_keys"
     chown dlesieur:dlesieur "$HOST_PUBKEY_DIR/authorized_keys"
     echo "[OK] Host SSH public key installed for dlesieur"
 else
-    echo "[WARN] No host SSH public key found — password auth only"
+    echo "[WARN] No host SSH public key found at /tmp/host_ssh_pubkey — password auth only"
 fi
 
 # Ensure PubkeyAuthentication is enabled in sshd_config

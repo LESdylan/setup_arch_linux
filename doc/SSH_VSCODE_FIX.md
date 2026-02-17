@@ -153,6 +153,8 @@ Multiple people had the exact same symptoms. The fix that kept coming up:
 
 Same symptoms. VS Code SSH times out, but `ssh` from terminal works fine. The logs show the same pattern: "Found running server - short-circuiting install" → then it tries to reuse a stale SOCKS tunnel → dies.
 
+### Issue fixing vscode when it keeps dropping ssh connections
+**URL:** https://earlruby.org/2021/06/fixing-vscode-when-it-keeps-dropping-ssh-connections/comment-page-1/
 ### The Official Troubleshooting Wiki
 **URL:** https://github.com/microsoft/vscode-remote-release/wiki/Remote-SSH-Troubleshooting
 
@@ -575,10 +577,12 @@ All of this is automated so I never have to do it manually again. When I run `ma
 
 ### 1. ISO Creation (`generate/create_custom_iso.sh`)
 - Copies `b2b-setup.sh`, `monitoring.sh`, `first-boot-setup.sh` into the ISO
-- **NEW:** Also copies my host's SSH public key as `host_ssh_pubkey` into the ISO
+- Also copies my host's SSH public key as `host_ssh_pubkey` into the ISO
 
 ### 2. VM Installation (preseed + `b2b-setup.sh`)
 - Preseed automates the entire Debian installation
+- `preseed.cfg` `late_command` copies `host_ssh_pubkey` from `/cdrom/` to `/target/tmp/`
+  (because `b2b-setup.sh` runs inside `in-target` chroot where `/cdrom/` is NOT accessible)
 - `b2b-setup.sh` runs in chroot and configures:
   - SSH on port 4242 with all keepalive settings
   - MaxStartups 50:30:100 for VS Code
@@ -586,8 +590,8 @@ All of this is automated so I never have to do it manually again. When I run `ma
   - SSHD watchdog systemd service
   - Kernel TCP keepalive sysctl
   - systemd auto-restart override for sshd
-  - **NEW:** Installs host SSH public key from ISO into `~/.ssh/authorized_keys`
-  - **NEW:** Enables `PubkeyAuthentication yes`
+  - Installs host SSH public key from `/tmp/host_ssh_pubkey` into `~/.ssh/authorized_keys`
+  - Enables `PubkeyAuthentication yes`
 
 ### 3. Orchestrator (`generate/orchestrate.sh`)
 After the ISO is built and VM is created:

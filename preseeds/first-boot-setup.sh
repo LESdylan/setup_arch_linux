@@ -47,6 +47,12 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 # Add dlesieur to docker group
 usermod -aG docker dlesieur 2>/dev/null || true
 
+# Kill any running VS Code server so it restarts with the docker group loaded.
+# Without this, the VS Code server inherits the old group list (no docker GID)
+# and every Docker command from the VS Code terminal fails with "permission denied".
+# The user's next VS Code reconnect will spawn a fresh server with correct groups.
+pkill -u dlesieur -f "vscode-server" 2>/dev/null || true
+
 # Enable and start Docker
 systemctl enable docker
 systemctl start docker
