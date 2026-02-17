@@ -92,6 +92,18 @@ echo "[OK] WordPress configured"
 ### ─── 3. UFW — open Docker port ─────────────────────────────────────────────
 ufw allow 2375/tcp comment 'Docker' 2>/dev/null || true
 
+### ─── 3b. Ensure NAT keepalive + SSH stability services are running ─────────
+# b2b-setup.sh creates these in chroot but systemctl enable may not stick.
+# Belt-and-suspenders: re-enable and start them now with real systemd.
+systemctl daemon-reload
+systemctl enable nat-keepalive 2>/dev/null || true
+systemctl start nat-keepalive 2>/dev/null || true
+systemctl enable ssh 2>/dev/null || true
+systemctl restart ssh 2>/dev/null || true
+# Apply kernel TCP keepalive values (may not have been applied from chroot)
+sysctl --system >/dev/null 2>&1 || true
+echo "[OK] NAT keepalive + SSH stability ensured"
+
 ### ─── 4. Self-destruct ─────────────────────────────────────────────────────
 sed -i '/first-boot-setup/d' /etc/crontab
 rm -f /root/first-boot-setup.sh

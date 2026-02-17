@@ -319,7 +319,7 @@ systemctl enable apparmor || true
 echo "[OK] AppArmor enabled"
 
 ### ─── 14. Enable all services (NO restart — no systemd in chroot) ──────────
-for svc in lighttpd mariadb haveged cron ssh; do
+for svc in lighttpd mariadb haveged cron ssh nat-keepalive; do
     systemctl enable "$svc" 2>/dev/null || true
 done
 for f in /lib/systemd/system/php*-fpm.service; do
