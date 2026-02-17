@@ -406,34 +406,7 @@ get_vm_port() {
         | grep "^Forwarding" | grep "\"${name}")
     # If searching for "http", exclude "https" matches
     if [ "$name" = "http" ]; then
-        line=$(echo "$line" | grep -v "\"https")c1r1s6% cat /home/dlesieur/.config/Code/User/settings.json
-{
-    "inlineChat.hideOnRequest": true,
-    "workbench.colorTheme": "GitHub Dark High Contrast",
-    "editor.dragAndDrop": false,
-    "editor.definitionLinkOpensInPeek": true,
-    "editor.insertSpaces": false,
-    "files.autoSave": "afterDelay",
-    "github.copilot.nextEditSuggestions.enabled": true,
-    "github.copilot.enable": {
-        "*": true,
-        "plaintext": false,
-        "markdown": true,
-        "scminput": false,
-        "c": false
-    },
-    "explorer.confirmDelete": false,
-    "makefile.configureOnOpen": true,
-    "explorer.confirmDragAndDrop": false,
-    "remote.SSH.useLocalServer": false,
-    "remote.SSH.enableDynamicForwarding": false,
-    "remote.SSH.useExecServer": false,
-    "remote.SSH.connectTimeout": 60,
-    "remote.SSH.showLoginTerminal": true,
-    "remote.SSH.remotePlatform": {
-        "b2b": "linux"
-    }
-}%            
+        line=$(echo "$line" | grep -v "\"https")
     fi
     echo "$line" | head -1 | cut -d',' -f4
 }
