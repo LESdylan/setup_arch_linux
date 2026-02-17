@@ -246,6 +246,50 @@ else
     STEP_DETAIL[3]="installing..."; draw_dashboard
 fi
 
+# ── Wait for VM to fully unlock after poweroff ──────────────────────────────
+# VBoxManage controlvm poweroff returns immediately but the session lock
+# takes several seconds to release. modifyvm will FAIL if we don't wait.
+wait_for_vm_unlock() {
+    local max_wait=30
+    local i=0
+    while [ "$i" -lt "$max_wait" ]; do
+        local st
+        st=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+            | grep "^VMState=" | cut -d'"' -f2)
+        if [ "$st" = "poweroff" ] || [ "$st" = "aborted" ] || [ "$st" = "saved" ]; then
+            # Try a harmless modifyvm to see if the lock is actually released
+            if VBoxManage modifyvm "${VM_NAME}" --description "b2b" 2>/dev/null; then
+                return 0
+            fi
+        fi
+        sleep 1
+        i=$((i + 1))
+    done
+    return 1  # still locked after 30s
+}
+
+# ── Switch boot order from DVD to disk (with retries) ───────────────────────
+switch_boot_to_disk() {
+    local max_retries=5
+    local attempt=0
+    while [ "$attempt" -lt "$max_retries" ]; do
+        if VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null; then
+            VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" \
+                --port 0 --device 0 --medium emptydrive 2>/dev/null || true
+            return 0
+        fi
+        sleep 3
+        attempt=$((attempt + 1))
+    done
+    # Last-resort: the lock may be truly stuck — kill any leftover VBox processes
+    # for this VM and try one more time
+    VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+    sleep 5
+    VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
+    VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" \
+        --port 0 --device 0 --medium emptydrive 2>/dev/null || true
+}
+
 # ── Wait for install to finish (VM will power off) then boot from disk ───
 # The preseed sets exit/poweroff=true so the VM shuts down after install.
 # We wait for that, then switch boot order from DVD→disk to disk→DVD,
@@ -254,42 +298,54 @@ fi
 # EDGE CASE: busybox 'halt' in the d-i environment may not trigger a real
 # ACPI poweroff, leaving VirtualBox in VMState="running" with 0% CPU
 # ("System halted" on screen). We detect this by checking CPU load:
-# if the VM's CPU usage drops to 0% for 3 consecutive checks, it's halted.
+# if the VM's CPU usage drops to 0% for consecutive checks, it's halted.
 wait_for_install() {
-    local timeout=1800  # 30 minutes max
+    local timeout=2400  # 40 minutes max (installs can be slow on shared storage)
     local elapsed=0
     local zero_cpu_count=0  # consecutive checks with ~0% CPU
-    local min_elapsed=120   # don't check CPU in first 2 min (install is busy)
+    local min_elapsed=600   # don't check CPU in first 10 min (install is busy)
+    local metrics_available=false
+
+    # Try to enable metrics (not all VBox installations support this)
+    if VBoxManage metrics setup --period 5 --samples 3 "${VM_NAME}" 2>/dev/null; then
+        VBoxManage metrics enable "${VM_NAME}" CPU/Load/User 2>/dev/null && metrics_available=true
+    fi
+
     while [ $elapsed -lt $timeout ]; do
         sleep 10
         elapsed=$((elapsed + 10))
         local state
         state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
             | grep "^VMState=" | cut -d'"' -f2)
-        # Clean poweroff detected
+
+        # Clean poweroff detected — the installer finished and ACPI worked
         if [ "$state" = "poweroff" ] || [ "$state" = "aborted" ]; then
             return 0
         fi
-        # Check for halted-but-still-running ("System halted" with 0% CPU)
-        if [ "$state" = "running" ] && [ $elapsed -gt $min_elapsed ]; then
+
+        # Only attempt CPU-based halt detection if metrics are ACTUALLY working
+        # Without real metrics we CANNOT distinguish "install busy" from "halted"
+        # so we just wait for the VM to reach poweroff state on its own.
+        if [ "$state" = "running" ] && [ $elapsed -gt $min_elapsed ] && [ "$metrics_available" = true ]; then
             local cpu_pct
             cpu_pct=$(VBoxManage metrics query "${VM_NAME}" CPU/Load/User 2>/dev/null \
                 | tail -1 | awk '{print $NF}' | tr -d '%' | cut -d. -f1)
-            # If we can't get metrics, try guest property approach
-            if [ -z "$cpu_pct" ] || [ "$cpu_pct" = "0" ]; then
+            # Only count as zero if we actually got a numeric response
+            if [ -n "$cpu_pct" ] && [ "$cpu_pct" -eq 0 ] 2>/dev/null; then
                 zero_cpu_count=$((zero_cpu_count + 1))
-            else
+            elif [ -n "$cpu_pct" ]; then
                 zero_cpu_count=0
             fi
-            # 3 consecutive zero-CPU checks (30 seconds) = VM is halted
-            if [ $zero_cpu_count -ge 3 ]; then
-                STEP_DETAIL[3]="VM halted, forcing poweroff..."
+            # Require 12 consecutive zero-CPU checks (120s of true 0% CPU)
+            if [ $zero_cpu_count -ge 12 ]; then
+                STEP_DETAIL[3]="VM halted (0% CPU for 2min), forcing poweroff..."
                 draw_dashboard
                 VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
-                sleep 3
+                wait_for_vm_unlock
                 return 0
             fi
         fi
+
         # Update dashboard with elapsed time
         local mins=$((elapsed / 60))
         local secs=$((elapsed % 60))
@@ -297,8 +353,10 @@ wait_for_install() {
         draw_dashboard
     done
     # Timeout — force poweroff as last resort
+    STEP_DETAIL[3]="timeout reached, forcing poweroff..."
+    draw_dashboard
     VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
-    sleep 3
+    wait_for_vm_unlock
     return 0
 }
 
@@ -306,15 +364,26 @@ wait_for_install() {
 BOOT1=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
     | grep "^boot1=" | cut -d'"' -f2)
 if [ "$BOOT1" = "dvd" ]; then
-    # Enable VBox metrics collection (needed for CPU halt detection)
-    VBoxManage metrics setup --period 5 --samples 3 "${VM_NAME}" 2>/dev/null || true
-    VBoxManage metrics enable "${VM_NAME}" CPU/Load/User 2>/dev/null || true
     STEP_DETAIL[3]="installing (this takes ~10-20 min)..."
     draw_dashboard
     wait_for_install
-    # Switch boot order: disk first, remove ISO
-    VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
-    VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" --port 0 --device 0 --medium emptydrive 2>/dev/null || true
+
+    # ── CRITICAL: switch boot order to disk ──────────────────────────────
+    # Must wait for the VM lock to release before modifyvm will work.
+    STEP_DETAIL[3]="switching boot to disk..."
+    draw_dashboard
+    wait_for_vm_unlock
+    switch_boot_to_disk
+
+    # Verify the switch actually worked
+    new_boot=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null \
+        | grep "^boot1=" | cut -d'"' -f2)
+    if [ "$new_boot" != "disk" ]; then
+        # Emergency fallback: force it one more time
+        sleep 5
+        switch_boot_to_disk
+    fi
+
     STEP_DETAIL[3]="install done, booting from disk..."
     draw_dashboard
     sleep 2
@@ -365,6 +434,59 @@ P_FRONTEND=$(get_vm_port frontend)
 P_BACKEND=$(get_vm_port backend)
 P_PRESEED=$(find_free_port 8080)
 
+# ── Host-side SSH config (keepalives + VM shortcut) ──────────────────────────
+setup_host_ssh_config() {
+    local ssh_dir="$HOME/.ssh"
+    local ssh_config="$ssh_dir/config"
+    local marker="# Born2beRoot VM (auto-generated)"
+
+    mkdir -p "$ssh_dir"
+    chmod 700 "$ssh_dir"
+    touch "$ssh_config"
+    chmod 600 "$ssh_config"
+
+    # Remove any previous Born2beRoot block
+    if grep -q "$marker" "$ssh_config" 2>/dev/null; then
+        sed -i "/${marker}/,/^$/d" "$ssh_config"
+    fi
+
+    # Ensure global keepalive defaults exist at the top
+    # ServerAliveInterval 15 = send keepalive every 15 seconds to keep VirtualBox NAT alive
+    if ! grep -q '^Host \*' "$ssh_config" 2>/dev/null; then
+        cat >> "$ssh_config" << SSHEOF
+
+Host *
+    ServerAliveInterval 15
+    ServerAliveCountMax 4
+    TCPKeepAlive yes
+    ConnectionAttempts 3
+SSHEOF
+    fi
+
+    # Add VM-specific shortcut
+    cat >> "$ssh_config" << SSHEOF
+
+${marker}
+Host b2b vm born2beroot
+    HostName 127.0.0.1
+    Port ${P_SSH}
+    User dlesieur
+    ServerAliveInterval 15
+    ServerAliveCountMax 6
+    TCPKeepAlive yes
+    ConnectionAttempts 5
+    ConnectTimeout 10
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+    LogLevel ERROR
+
+SSHEOF
+    echo "  ✓ Host SSH config updated (~/.ssh/config)"
+    echo "    → 'ssh b2b' connects directly to the VM"
+}
+
+setup_host_ssh_config 2>/dev/null || true
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 HOST_IP=$(get_host_ip)
 printf "${SHOW_CUR}\n"
@@ -390,8 +512,17 @@ row "    ${YLW}2.${RST} Log in:  ${GRN}dlesieur${RST} / ${GRN}tempuser123${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Connect from Host${RST}"
-row "    ${DIM}SSH${RST}        ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
+row "    ${DIM}SSH${RST}        ${BLD}ssh b2b${RST}   ${DIM}(shortcut — auto-configured)${RST}"
+row "    ${DIM}or${RST}         ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
 row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
+blank
+mid
+row "  ${BLD}${WHT}▸ tmux — Session Persistence${RST}"
+row "    ${GRN}Auto-enabled:${RST} SSH login auto-attaches to tmux"
+row "    ${DIM}If SSH drops, just reconnect — your session is still there${RST}"
+row "    ${DIM}Detach:${RST}  ${BLD}Ctrl+B d${RST}     ${DIM}Reattach:${RST}  ${BLD}ssh b2b${RST}  ${DIM}(automatic)${RST}"
+row "    ${DIM}Split H:${RST} ${BLD}Ctrl+B |${RST}     ${DIM}Split V:${RST}   ${BLD}Ctrl+B -${RST}"
+row "    ${DIM}New win:${RST} ${BLD}Ctrl+B c${RST}     ${DIM}List:${RST}      ${BLD}tmux ls${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Vite Gourmand (Dev Servers)${RST}"
