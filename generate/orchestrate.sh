@@ -460,6 +460,7 @@ Host *
     ServerAliveCountMax 4
     TCPKeepAlive yes
     ConnectionAttempts 3
+    ConnectTimeout 15
 SSHEOF
     fi
 
@@ -475,7 +476,7 @@ Host b2b vm born2beroot
     ServerAliveCountMax 6
     TCPKeepAlive yes
     ConnectionAttempts 5
-    ConnectTimeout 10
+    ConnectTimeout 15
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     LogLevel ERROR

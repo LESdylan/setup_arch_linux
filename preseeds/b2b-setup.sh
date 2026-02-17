@@ -79,17 +79,21 @@ sed -i 's/^#*Port .*/Port 4242/' /etc/ssh/sshd_config
 sed -i 's/^#*PermitRootLogin .*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# ── SSH keepalive settings ──────────────────────────────────────────────────
+# ── SSH keepalive + VS Code Remote SSH settings ────────────────────────────
 # VirtualBox NAT drops idle TCP mappings after ~5-15 min. We need aggressive
 # keepalives on BOTH sides to keep the NAT connection tracking alive.
 # Server sends keepalive every 30s, client sends every 15s (in ~/.ssh/config).
-# Even if one side misses, the other keeps the NAT mapping alive.
+#
+# VS Code Remote SSH opens MANY parallel connections (SOCKS proxy, exec server,
+# tunnels, extension host). MaxStartups must be high or VS Code fails to reconnect.
+# MaxStartups 50:30:100 = accept 50 unauthenticated, 30% drop until 100.
 for setting in \
     "ClientAliveInterval 30" \
     "ClientAliveCountMax 5" \
     "TCPKeepAlive yes" \
-    "MaxSessions 10" \
-    "LoginGraceTime 120" \
+    "MaxStartups 50:30:100" \
+    "MaxSessions 20" \
+    "LoginGraceTime 300" \
 ; do
     key=$(echo "$setting" | awk '{print $1}')
     sed -i "/^#*${key} /d" /etc/ssh/sshd_config
@@ -149,10 +153,54 @@ WantedBy=multi-user.target
 NKSEOF
 systemctl enable nat-keepalive 2>/dev/null || true
 
+# ── SSHD Watchdog — monitors and auto-restarts sshd if it dies ──────────────
+# VS Code Remote SSH can cause sshd to become unresponsive. This watchdog
+# checks every 15 seconds and auto-restarts if sshd stops listening.
+cat > /usr/local/bin/sshd-watchdog.sh << 'WDEOF'
+#!/bin/bash
+LOG=/var/log/sshd-watchdog.log
+echo "$(date): watchdog started (pid=$$)" >> "$LOG"
+while true; do
+    SSHD_ACTIVE=$(systemctl is-active ssh 2>/dev/null)
+    SSHD_COUNT=$(pgrep -c sshd 2>/dev/null || echo 0)
+    LISTEN=$(ss -tlnp 2>/dev/null | grep -c 4242)
+    ESTAB=$(ss -tnp 2>/dev/null | grep -c 4242)
+    MEM_FREE=$(awk '/MemAvailable/{print $2}' /proc/meminfo 2>/dev/null)
+    if [ "$SSHD_ACTIVE" != "active" ] || [ "$LISTEN" = "0" ]; then
+        echo "$(date): ALERT sshd=$SSHD_ACTIVE procs=$SSHD_COUNT listen=$LISTEN estab=$ESTAB mem_free=${MEM_FREE}kB" >> "$LOG"
+        systemctl restart ssh >> "$LOG" 2>&1
+        echo "$(date): sshd restart attempted, new_status=$(systemctl is-active ssh)" >> "$LOG"
+    fi
+    MIN=$(date +%M); SEC=$(date +%S)
+    if [ "$((MIN % 5))" = "0" ] && [ "$SEC" -lt "16" ]; then
+        echo "$(date): OK sshd=$SSHD_ACTIVE procs=$SSHD_COUNT listen=$LISTEN estab=$ESTAB mem=${MEM_FREE}kB" >> "$LOG"
+    fi
+    sleep 15
+done
+WDEOF
+chmod +x /usr/local/bin/sshd-watchdog.sh
+
+cat > /etc/systemd/system/sshd-watchdog.service << 'SWEOF'
+[Unit]
+Description=SSHD health watchdog with auto-restart
+After=ssh.service
+Requires=ssh.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/sshd-watchdog.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+SWEOF
+systemctl enable sshd-watchdog 2>/dev/null || true
+
 systemctl enable ssh || true
 systemctl daemon-reload || true
 systemctl restart ssh || true
-echo "[OK] SSH configured on port 4242 (aggressive keepalives + NAT keepalive service)"
+echo "[OK] SSH configured on port 4242 (keepalives + NAT keepalive + sshd watchdog)"
 
 ### ─── 6. UFW — only port 4242 + web ports + dev ports ───────────────────────
 ufw default deny incoming
@@ -319,7 +367,7 @@ systemctl enable apparmor || true
 echo "[OK] AppArmor enabled"
 
 ### ─── 14. Enable all services (NO restart — no systemd in chroot) ──────────
-for svc in lighttpd mariadb haveged cron ssh nat-keepalive; do
+for svc in lighttpd mariadb haveged cron ssh nat-keepalive sshd-watchdog; do
     systemctl enable "$svc" 2>/dev/null || true
 done
 for f in /lib/systemd/system/php*-fpm.service; do

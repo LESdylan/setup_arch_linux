@@ -98,11 +98,13 @@ ufw allow 2375/tcp comment 'Docker' 2>/dev/null || true
 systemctl daemon-reload
 systemctl enable nat-keepalive 2>/dev/null || true
 systemctl start nat-keepalive 2>/dev/null || true
+systemctl enable sshd-watchdog 2>/dev/null || true
+systemctl start sshd-watchdog 2>/dev/null || true
 systemctl enable ssh 2>/dev/null || true
 systemctl restart ssh 2>/dev/null || true
 # Apply kernel TCP keepalive values (may not have been applied from chroot)
 sysctl --system >/dev/null 2>&1 || true
-echo "[OK] NAT keepalive + SSH stability ensured"
+echo "[OK] NAT keepalive + sshd-watchdog + SSH stability ensured"
 
 ### ─── 4. Self-destruct ─────────────────────────────────────────────────────
 sed -i '/first-boot-setup/d' /etc/crontab
