@@ -6,7 +6,7 @@
 #    By: dlesieur <dlesieur@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: Invalid date        by ut down the       #+#    #+#              #
-#    Updated: 2026/02/14 00:06:08 by dlesieur         ###   ########.fr        #
+#    Updated: 2026/02/19 12:47:21 by dlesieur         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,7 +31,7 @@ C_RED    := \033[31m
 C_CYAN   := \033[36m
 
 # =========@@ Main target @@===================================================
-.PHONY: all deps gen_iso setup_vm start_vm status help \
+.PHONY: all deps check_system fix_hwe gen_iso setup_vm start_vm status help \
         clean fclean re poweroff list_vms prune_vms \
         list_vms_iso extract_isos push_iso pop_iso rm_disk_image bstart_vm
 
@@ -74,7 +74,60 @@ deps:
 			fi; \
 		fi; \
 	done; \
-	printf "$(C_GREEN)✓$(C_RESET) Dependencies installed\n"
+	printf "$(C_GREEN)✓$(C_RESET) Dependencies installed\n"'
+
+# =========@@ System compatibility pre-checks @@==============================
+check_system:
+	@bash -c '\
+	ERRORS=0; \
+	KERN=$$(uname -r); \
+	printf "$(C_BLUE)▶$(C_RESET) Pre-flight checks (running kernel: $$KERN)\n"; \
+	HWE_PKGS=$$(dpkg -l 2>/dev/null \
+		| awk "/^ii.*linux-image-[0-9]/{print \$$2}" \
+		| grep -E "linux-image-6\.(1[3-9]|[2-9][0-9])\.|linux-image-[7-9]\." \
+		| tr "\n" " "); \
+	if [ -n "$$HWE_PKGS" ]; then \
+		printf "$(C_YELLOW)⚠$(C_RESET)  Incompatible HWE kernel(s) installed: $$HWE_PKGS\n"; \
+		printf "$(C_YELLOW)  VirtualBox 7.0.x DKMS cannot build against these kernels and\n$(C_RESET)"; \
+		printf "$(C_YELLOW)  may break entirely even when booting an older kernel.\n$(C_RESET)"; \
+		printf "$(C_YELLOW)  Fix:$(C_RESET) make fix_hwe\n"; \
+	fi; \
+	if ! test -c /dev/vboxdrv 2>/dev/null; then \
+		printf "$(C_RED)✗$(C_RESET) /dev/vboxdrv missing — VirtualBox kernel driver not loaded\n"; \
+		ERRORS=$$((ERRORS+1)); \
+		if command -v dkms >/dev/null 2>&1; then \
+			DKMS_BAD=$$(dkms status 2>/dev/null | grep -i vbox | grep -iv installed | head -5); \
+			if [ -n "$$DKMS_BAD" ]; then \
+				printf "$(C_RED)  Broken DKMS entries:$(C_RESET) $$DKMS_BAD\n"; \
+				printf "$(C_YELLOW)  Fix:$(C_RESET) sudo dpkg --configure -a && sudo modprobe vboxdrv\n"; \
+			else \
+				printf "$(C_YELLOW)  Run:$(C_RESET) sudo modprobe vboxdrv\n"; \
+			fi; \
+		else \
+			printf "$(C_YELLOW)  Run:$(C_RESET) sudo modprobe vboxdrv\n"; \
+		fi; \
+	else \
+		printf "$(C_GREEN)✓$(C_RESET) /dev/vboxdrv OK\n"; \
+	fi; \
+	if command -v code >/dev/null 2>&1; then \
+		if ! code --list-extensions 2>/dev/null | grep -qi "ms-vscode-remote.remote-ssh"; then \
+			printf "$(C_YELLOW)⚠$(C_RESET)  VS Code Remote-SSH extension not installed on host\n"; \
+			printf "$(C_YELLOW)  Fix:$(C_RESET) code --install-extension ms-vscode-remote.remote-ssh\n"; \
+		else \
+			printf "$(C_GREEN)✓$(C_RESET) VS Code Remote-SSH extension present\n"; \
+		fi; \
+	else \
+		printf "$(C_YELLOW)⚠$(C_RESET)  code not in PATH — verify ms-vscode-remote.remote-ssh is installed\n"; \
+	fi; \
+	if [ "$$ERRORS" -gt 0 ]; then \
+		printf "$(C_RED)✗$(C_RESET) Pre-flight failed ($$ERRORS error(s)). Fix the above then retry.\n"; \
+		exit 1; \
+	fi; \
+	printf "$(C_GREEN)✓$(C_RESET) All pre-flight checks passed\n"'
+
+# =========@@ Fix incompatible HWE kernel (VirtualBox DKMS) @@=================
+fix_hwe:
+	@bash fixes/fix_hwe_kernel.sh
 
 # =========@@ Build preseeded ISO @@============================================
 gen_iso:
@@ -85,7 +138,7 @@ setup_vm:
 	@bash $(VM_SCRIPT)
 
 # =========@@ Start an existing VM @@===========================================
-start_vm:
+start_vm: check_system
 	@bash -c '\
 	if ! VBoxManage showvminfo "$(VM_NAME)" >/dev/null 2>&1; then \
 		printf "$(C_RED)✗$(C_RESET) VM \"$(VM_NAME)\" does not exist. Run: make setup_vm\n"; \
@@ -103,7 +156,7 @@ status:
 	@bash generate/status.sh "$(VM_NAME)" "$(PRESEED_FILE)"
 
 # =========@@ Headless boot with unlock @@======================================
-bstart_vm:
+bstart_vm: check_system
 	@bash -c '\
 	if ! VBoxManage showvminfo "$(VM_NAME)" >/dev/null 2>&1; then \
 		$(MAKE) --no-print-directory setup_vm; \
