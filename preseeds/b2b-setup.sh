@@ -388,41 +388,59 @@ echo "*/10 * * * * root /usr/local/bin/monitoring.sh" >> /etc/crontab
 echo "[OK] Monitoring cron set"
 
 ### ─── 12. Lighttpd + PHP-FPM + WordPress routing ────────────────────────────
-lighty-enable-mod fastcgi < /dev/null 2>/dev/null || true
-lighty-enable-mod fastcgi-php < /dev/null 2>/dev/null || true
-
-# Detect installed PHP-FPM version (e.g. 8.2, 8.3)
+# Detect installed PHP-FPM version and socket path
 PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.2")
 PHP_SOCK="/run/php/php${PHP_VER}-fpm.sock"
 
-# WordPress lighttpd config — alias + fastcgi + URL rewriting
-cat > /etc/lighttpd/conf-available/99-wordpress.conf << WPLIGHT
-# ── WordPress on Lighttpd ────────────────────────────────────
-# Serve WordPress under /wordpress via alias
-alias.url += ( "/wordpress" => "/var/www/html/wordpress" )
+# Enable mod_fastcgi (base module)
+lighty-enable-mod fastcgi < /dev/null 2>/dev/null || true
 
-# FastCGI configuration for PHP-FPM
+# DISABLE the stock fastcgi-php config — it uses php-cgi, NOT php-fpm,
+# and creates a conflicting fastcgi.server entry for ".php".
+lighty-disable-mod fastcgi-php < /dev/null 2>/dev/null || true
+rm -f /etc/lighttpd/conf-enabled/15-fastcgi-php.conf
+
+# Also remove the default "unconfigured" placeholder page
+rm -f /etc/lighttpd/conf-enabled/99-unconfigured.conf
+
+# Create a single, clean WordPress + PHP-FPM config
+# This is the ONLY file that defines how PHP is served.
+cat > /etc/lighttpd/conf-available/99-wordpress.conf << WPLIGHT
+# ── WordPress + PHP-FPM on Lighttpd ──────────────────────────
+# Load required modules (mod_fastcgi is loaded by 10-fastcgi.conf)
+server.modules += ( "mod_rewrite" )
+
+# PHP-FPM via Unix socket (the only PHP handler — no php-cgi)
 fastcgi.server += ( ".php" =>
     (( "socket" => "${PHP_SOCK}",
        "broken-scriptfilename" => "enable"
     ))
 )
 
-# URL rewriting for WordPress pretty permalinks
+# Root redirect: / → /wordpress/
+url.redirect = ( "^/$" => "/wordpress/" )
+
+# WordPress pretty permalinks — protect wp-admin/wp-content/wp-includes
+# directories from being rewritten (they are directories, not files, so
+# url.rewrite-if-not-file would catch them and break wp-admin).
 url.rewrite-if-not-file = (
-    "^/wordpress/(.*)$" => "/wordpress/index.php/$1"
+    "^/wordpress/wp-admin(.*)"    => "/wordpress/wp-admin\$1",
+    "^/wordpress/wp-includes(.*)" => "/wordpress/wp-includes\$1",
+    "^/wordpress/wp-content(.*)"  => "/wordpress/wp-content\$1",
+    "^/wordpress/(.*\\.php.*)"    => "/wordpress/\$1",
+    "^/wordpress/(.*)"            => "/wordpress/index.php/\$1"
 )
 
-# Ensure index.php is served by default
+# Default index file
 index-file.names += ( "index.php" )
 
-# Allow uploads up to 32MB
+# Allow uploads up to 32 MB
 server.max-request-size = 32768
 WPLIGHT
 
-lighty-enable-mod wordpress < /dev/null 2>/dev/null || \
-    ln -sf /etc/lighttpd/conf-available/99-wordpress.conf \
-           /etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null || true
+# Enable the config (create symlink)
+ln -sf /etc/lighttpd/conf-available/99-wordpress.conf \
+       /etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null || true
 
 # Ensure lighttpd listens on port 80
 if ! grep -q 'server.port' /etc/lighttpd/lighttpd.conf 2>/dev/null; then

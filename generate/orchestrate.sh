@@ -57,15 +57,16 @@ _auto_width() {
         stripped=$(printf '%b' "$line" | sed 's/\x1b\[[0-9;]*m//g')
         local vw
         vw=$(_display_width "$stripped")
-        [ "$vw" -gt "$max_w" ] && max_w="$vw"
+        if [ "$vw" -gt "$max_w" ]; then max_w="$vw"; fi
     done
     # Add 2 for right padding, clamp to [60, terminal_cols - 6]
     local term_w
     term_w=$(tput cols 2>/dev/null || echo 100)
     W=$((max_w + 2))
-    [ "$W" -lt 60 ] && W=60
+    if [ "$W" -lt 60 ]; then W=60; fi
     local max_allowed=$((term_w - 6))
-    [ "$W" -gt "$max_allowed" ] && W=$max_allowed
+    if [ "$W" -gt "$max_allowed" ]; then W=$max_allowed; fi
+    return 0
 }
 
 row() {
@@ -580,6 +581,41 @@ setup_ssh_key_auth 2>/dev/null || true
 HOST_IP=$(get_host_ip)
 printf "${SHOW_CUR}\n"
 
+# Compute responsive box width from the longest content line
+_auto_width \
+    "  ▸ What happens now" \
+    "    The VM boots the preseeded ISO and installs Debian" \
+    "    automatically (partitioning, SSH, WordPress, etc)." \
+    "    root password      temproot123" \
+    "    user (dlesieur)    tempuser123" \
+    "    disk encryption    tempencrypt123" \
+    "    1. Disk passphrase:  tempencrypt123" \
+    "    SSH        ssh b2b   (shortcut — auto-configured)" \
+    "    or         ssh -p ${P_SSH} dlesieur@127.0.0.1" \
+    "    WordPress  http://127.0.0.1:${P_HTTP}/wordpress" \
+    "    VS Code    Host: 127.0.0.1  Port: ${P_SSH}  User: dlesieur" \
+    "    lighttpd :80  ·  MariaDB :3306  ·  PHP-FPM" \
+    "    AppArmor: enforced  ·  UFW: active" \
+    "    Docker :2375  ·  SSH :4242  ·  Monitoring: cron/10m" \
+    "    If SSH drops, just reconnect — your session is still there" \
+    "    Detach:  Ctrl+B d     Reattach:  ssh b2b  (automatic)" \
+    "    Dashboard   http://127.0.0.1:${P_HTTP}/wordpress/wp-admin/" \
+    "    Login      http://127.0.0.1:${P_HTTP}/wordpress/wp-login.php" \
+    "    Creds      admin / admin123wp!" \
+    "    DB         wordpress (wpuser / wppass123)" \
+    "    Frontend   http://127.0.0.1:${P_FRONTEND}" \
+    "    Backend    http://127.0.0.1:${P_BACKEND}/api" \
+    "    API Docs   http://127.0.0.1:${P_BACKEND}/api/docs" \
+    "    Host LAN IP:   ${HOST_IP}" \
+    "    NAT gateway:   10.0.2.2  (host seen from VM)" \
+    "      cd preseeds && python3 -m http.server ${P_PRESEED}" \
+    "      http://10.0.2.2:${P_PRESEED}/preseed.cfg" \
+    "    SSH      :${P_SSH}    HTTP     :${P_HTTP}    HTTPS    :${P_HTTPS}" \
+    "    Frontend :${P_FRONTEND}  Backend  :${P_BACKEND}  Docker   :${P_DOCKER}" \
+    "    MariaDB  :${P_MARIADB}  Redis    :${P_REDIS}" \
+    "      ssh b2b  then  tail -f /var/log/first-boot.log" \
+    "    make status      check current state"
+
 top
 crow "${GRN}${BLD}✓  All Steps Completed${RST}"
 mid
@@ -605,6 +641,18 @@ row "    ${DIM}SSH${RST}        ${BLD}ssh b2b${RST}   ${DIM}(shortcut — auto-c
 row "    ${DIM}or${RST}         ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
 row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
 row "    ${DIM}VS Code${RST}    ${BLD}Host: 127.0.0.1  Port: ${P_SSH}  User: dlesieur${RST}"
+blank
+mid
+row "  ${BLD}${WHT}▸ WordPress Dashboard${RST}  ${GRN}(auto-installed + ready)${RST}"
+row "    ${DIM}Home${RST}       ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
+row "    ${DIM}Dashboard${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress/wp-admin/${RST}"
+row "    ${DIM}Login${RST}      ${BLD}http://127.0.0.1:${P_HTTP}/wordpress/wp-login.php${RST}"
+blank
+row "    ${BLD}${YLW}⚡ Quick Login${RST}"
+row "    ${DIM}Username${RST}   ${GRN}${BLD}admin${RST}"
+row "    ${DIM}Password${RST}   ${GRN}${BLD}admin123wp!${RST}"
+row "    ${DIM}DB name${RST}    wordpress  ${DIM}(user: wpuser / pass: wppass123)${RST}"
+row "    ${DIM}Plugin${RST}     ${CYN}Tech Blog Toolkit${RST} ${DIM}(tutorials, syntax highlighting)${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Services Inside VM${RST}"
