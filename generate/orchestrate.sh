@@ -18,7 +18,7 @@ CLR='\033[2K'
 trap 'printf "${SHOW_CUR}"; rm -rf "$LOG_DIR"' EXIT INT TERM
 
 # ── Box drawing (single-line, rounded corners) ───────────────────────────────
-W=60  # inner visible width between │ chars
+W=60  # default inner visible width — recalculated before summary
 
 top()  { printf "  ${CYN}╭"; printf '─%.0s' $(seq 1 $W); printf "╮${RST}\n"; }
 mid()  { printf "  ${CYN}├"; printf '─%.0s' $(seq 1 $W); printf "┤${RST}\n"; }
@@ -26,13 +26,54 @@ bot()  { printf "  ${CYN}╰"; printf '─%.0s' $(seq 1 $W); printf "╯${RST}\n
 blank(){ printf "  ${CYN}│${RST}%${W}s${CYN}│${RST}\n" ""; }
 
 # Print a row: content is padded to exactly W visible chars
+# Uses Python for accurate display-width measurement of wide chars (emoji)
+_display_width() {
+    local text="$1"
+    # Strip ANSI escape sequences, then measure display width
+    printf '%s' "$text" | python3 -c "
+import sys, unicodedata, re
+s = re.sub(r'\x1b\[[0-9;]*m', '', sys.stdin.read())
+w = 0
+for c in s:
+    eaw = unicodedata.east_asian_width(c)
+    if eaw in ('W', 'F'):
+        w += 2
+    elif unicodedata.category(c) in ('Mn', 'Me', 'Cf') or c == '\ufe0f':
+        w += 0
+    else:
+        w += 1
+print(w)
+" 2>/dev/null || {
+        printf '%s' "$text" | sed 's/\x1b\[[0-9;]*m//g' | wc -m
+    }
+}
+
+# Compute W from a list of raw text lines (call before drawing the box)
+# Finds the longest visible line and adds 2 chars right padding
+_auto_width() {
+    local max_w=0
+    for line in "$@"; do
+        local stripped
+        stripped=$(printf '%b' "$line" | sed 's/\x1b\[[0-9;]*m//g')
+        local vw
+        vw=$(_display_width "$stripped")
+        [ "$vw" -gt "$max_w" ] && max_w="$vw"
+    done
+    # Add 2 for right padding, clamp to [60, terminal_cols - 6]
+    local term_w
+    term_w=$(tput cols 2>/dev/null || echo 100)
+    W=$((max_w + 2))
+    [ "$W" -lt 60 ] && W=60
+    local max_allowed=$((term_w - 6))
+    [ "$W" -gt "$max_allowed" ] && W=$max_allowed
+}
+
 row() {
     local content="$1"
-    # Strip ANSI to measure visible length
     local stripped
     stripped=$(printf '%b' "$content" | sed 's/\x1b\[[0-9;]*m//g')
     local vlen
-    vlen=$(printf '%s' "$stripped" | wc -m)
+    vlen=$(_display_width "$stripped")
     local pad=$((W - vlen))
     [ "$pad" -lt 0 ] && pad=0
     printf "  ${CYN}│${RST}"
@@ -47,7 +88,7 @@ crow() {
     local stripped
     stripped=$(printf '%b' "$content" | sed 's/\x1b\[[0-9;]*m//g')
     local vlen
-    vlen=$(printf '%s' "$stripped" | wc -m)
+    vlen=$(_display_width "$stripped")
     local total_pad=$((W - vlen))
     local lpad=$((total_pad / 2))
     local rpad=$((total_pad - lpad))
@@ -563,6 +604,13 @@ row "  ${BLD}${WHT}▸ Connect from Host${RST}"
 row "    ${DIM}SSH${RST}        ${BLD}ssh b2b${RST}   ${DIM}(shortcut — auto-configured)${RST}"
 row "    ${DIM}or${RST}         ${BLD}ssh -p ${P_SSH} dlesieur@127.0.0.1${RST}"
 row "    ${DIM}WordPress${RST}  ${BLD}http://127.0.0.1:${P_HTTP}/wordpress${RST}"
+row "    ${DIM}VS Code${RST}    ${BLD}Host: 127.0.0.1  Port: ${P_SSH}  User: dlesieur${RST}"
+blank
+mid
+row "  ${BLD}${WHT}▸ Services Inside VM${RST}"
+row "    lighttpd ${DIM}:80${RST}  ·  MariaDB ${DIM}:3306${RST}  ·  PHP-FPM"
+row "    AppArmor: ${GRN}enforced${RST}  ·  UFW: ${GRN}active${RST}"
+row "    Docker ${DIM}:2375${RST}  ·  SSH ${DIM}:4242${RST}  ·  Monitoring: ${DIM}cron/10m${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ tmux — Session Persistence${RST}"
@@ -574,9 +622,9 @@ row "    ${DIM}New win:${RST} ${BLD}Ctrl+B c${RST}     ${DIM}List:${RST}      ${
 blank
 mid
 row "  ${BLD}${WHT}▸ Vite Gourmand (Dev Servers)${RST}"
-row "    ${DIM}🖥️  Frontend${RST}  ${BLD}http://127.0.0.1:${P_FRONTEND}${RST}"
-row "    ${DIM}🔧 Backend${RST}   ${BLD}http://127.0.0.1:${P_BACKEND}/api${RST}"
-row "    ${DIM}📚 API Docs${RST}  ${BLD}http://127.0.0.1:${P_BACKEND}/api/docs${RST}"
+row "    ${DIM}Frontend${RST}   ${BLD}http://127.0.0.1:${P_FRONTEND}${RST}"
+row "    ${DIM}Backend${RST}    ${BLD}http://127.0.0.1:${P_BACKEND}/api${RST}"
+row "    ${DIM}API Docs${RST}   ${BLD}http://127.0.0.1:${P_BACKEND}/api/docs${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Preseed via HTTP (alternative)${RST}"
@@ -594,6 +642,12 @@ row "  ${BLD}${WHT}▸ Port Forwarding (VM NAT)${RST}"
 row "    ${DIM}SSH${RST}      ${WHT}:${P_SSH}${RST}    ${DIM}HTTP${RST}     ${WHT}:${P_HTTP}${RST}    ${DIM}HTTPS${RST}    ${WHT}:${P_HTTPS}${RST}"
 row "    ${DIM}Frontend${RST} ${WHT}:${P_FRONTEND}${RST}  ${DIM}Backend${RST}  ${WHT}:${P_BACKEND}${RST}  ${DIM}Docker${RST}   ${WHT}:${P_DOCKER}${RST}"
 row "    ${DIM}MariaDB${RST}  ${WHT}:${P_MARIADB}${RST}  ${DIM}Redis${RST}    ${WHT}:${P_REDIS}${RST}"
+blank
+mid
+row "  ${BLD}${WHT}▸ First Boot Progress${RST}"
+row "    ${YLW}First boot takes ~2 min${RST} for Docker + WordPress setup"
+row "    ${DIM}Check progress:${RST}"
+row "      ${BLD}ssh b2b${RST}  then  ${BLD}tail -f /var/log/first-boot.log${RST}"
 blank
 mid
 row "  ${BLD}${WHT}▸ Useful Commands${RST}"

@@ -111,7 +111,7 @@ find_free_port() {
 
 # Resolve actual host ports (may differ from defaults if ports are taken)
 HOST_SSH_PORT=$(find_free_port "$SSH_PORT")
-HOST_HTTP_PORT=$(find_free_port 8080)
+HOST_HTTP_PORT=$(find_free_port 8082)
 HOST_HTTPS_PORT=$(find_free_port 8443)
 HOST_DOCKER_PORT=$(find_free_port 5000)
 HOST_MARIADB_PORT=$(find_free_port 3306)

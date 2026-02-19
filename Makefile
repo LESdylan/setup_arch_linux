@@ -6,7 +6,7 @@
 #    By: dlesieur <dlesieur@student.42.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: Invalid date        by ut down the       #+#    #+#              #
-#    Updated: 2026/02/19 12:47:21 by dlesieur         ###   ########.fr        #
+#    Updated: 2026/02/19 13:41:29 by dlesieur         ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -31,12 +31,27 @@ C_RED    := \033[31m
 C_CYAN   := \033[36m
 
 # =========@@ Main target @@===================================================
-.PHONY: all deps check_system fix_hwe gen_iso setup_vm start_vm status help \
+.PHONY: all pull deps check_system fix_hwe gen_iso setup_vm start_vm status help \
         clean fclean re poweroff list_vms prune_vms \
         list_vms_iso extract_isos push_iso pop_iso rm_disk_image bstart_vm
 
-all:
+all: pull
 	@bash generate/orchestrate.sh "$(VM_NAME)" "$(MAKE)"
+
+pull:
+	@bash -c '\
+	if [ -d .git ]; then \
+		printf "$(C_BLUE)▶$(C_RESET) Pulling latest from origin/main...\n"; \
+		git stash -q 2>/dev/null || true; \
+		if git pull --ff-only origin main 2>/dev/null; then \
+			printf "$(C_GREEN)✓$(C_RESET) Repository up to date\n"; \
+		else \
+			printf "$(C_YELLOW)⚠$(C_RESET)  Fast-forward failed — merging...\n"; \
+			git pull origin main 2>/dev/null || \
+				printf "$(C_YELLOW)⚠$(C_RESET)  git pull failed (working offline?)\n"; \
+		fi; \
+		git stash pop -q 2>/dev/null || true; \
+	fi'
 
 # =========@@ Install VirtualBox (cross-distro) @@=============================
 deps:

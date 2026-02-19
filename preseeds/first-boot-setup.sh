@@ -70,15 +70,25 @@ mysql -u root -e "GRANT ALL PRIVILEGES ON wordpress.* TO 'wpuser'@'localhost';"
 mysql -u root -e "FLUSH PRIVILEGES;"
 echo "[OK] MariaDB configured"
 
-# WordPress download
+# WordPress download — always pull the latest release via curl
 cd /var/www/html
-wget -q --timeout=60 --tries=3 https://wordpress.org/latest.tar.gz
+if [ -d wordpress ]; then
+    echo "WordPress directory already exists — backing up and re-downloading"
+    mv wordpress wordpress.bak.$(date +%s)
+fi
+curl -fsSL --retry 3 --retry-delay 5 --max-time 120 \
+    https://wordpress.org/latest.tar.gz -o latest.tar.gz
 tar -xzf latest.tar.gz
 rm -f latest.tar.gz
 chown -R www-data:www-data wordpress
+WP_VER=$(grep 'wp_version =' wordpress/wp-includes/version.php | cut -d"'" -f2)
+echo "[OK] WordPress ${WP_VER:-latest} downloaded via curl"
+
+# Fetch unique salts from WordPress API
+SALTS=$(curl -fsSL --retry 2 --max-time 15 https://api.wordpress.org/secret-key/1.1/salt/ 2>/dev/null || true)
 
 # WordPress config
-cat > /var/www/html/wordpress/wp-config.php << 'WPEOF'
+cat > /var/www/html/wordpress/wp-config.php << WPEOF
 <?php
 define('DB_NAME', 'wordpress');
 define('DB_USER', 'wpuser');
@@ -86,14 +96,23 @@ define('DB_PASSWORD', 'wppass123');
 define('DB_HOST', 'localhost');
 define('DB_CHARSET', 'utf8');
 define('DB_COLLATE', '');
-$table_prefix = 'wp_';
+\$table_prefix = 'wp_';
 define('WP_DEBUG', false);
+
+/* Unique authentication keys — fetched from WordPress.org API */
+${SALTS:-/* WARNING: Could not fetch salts — generate them at https://api.wordpress.org/secret-key/1.1/salt/ */}
+
 if ( ! defined( 'ABSPATH' ) ) { define( 'ABSPATH', __DIR__ . '/' ); }
 require_once ABSPATH . 'wp-settings.php';
 WPEOF
+chown www-data:www-data /var/www/html/wordpress/wp-config.php
+chmod 640 /var/www/html/wordpress/wp-config.php
 
+# Restart PHP-FPM + lighttpd to pick up new config
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.2")
+systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
 systemctl restart lighttpd
-echo "[OK] WordPress configured"
+echo "[OK] WordPress ${WP_VER:-latest} configured — lighttpd + PHP-FPM restarted"
 
 ### ─── 3. UFW — open Docker port ─────────────────────────────────────────────
 ufw allow 2375/tcp comment 'Docker' 2>/dev/null || true

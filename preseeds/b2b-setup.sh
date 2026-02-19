@@ -387,14 +387,70 @@ chmod +x /usr/local/bin/monitoring.sh 2>/dev/null || true
 echo "*/10 * * * * root /usr/local/bin/monitoring.sh" >> /etc/crontab
 echo "[OK] Monitoring cron set"
 
-### ─── 12. Lighttpd + PHP-FPM ────────────────────────────────────────────────
+### ─── 12. Lighttpd + PHP-FPM + WordPress routing ────────────────────────────
 lighty-enable-mod fastcgi < /dev/null 2>/dev/null || true
 lighty-enable-mod fastcgi-php < /dev/null 2>/dev/null || true
-echo "[OK] Lighttpd fastcgi modules enabled"
 
-### ─── 13. AppArmor — mandatory at startup ───────────────────────────────────
+# Detect installed PHP-FPM version (e.g. 8.2, 8.3)
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.2")
+PHP_SOCK="/run/php/php${PHP_VER}-fpm.sock"
+
+# WordPress lighttpd config — alias + fastcgi + URL rewriting
+cat > /etc/lighttpd/conf-available/99-wordpress.conf << WPLIGHT
+# ── WordPress on Lighttpd ────────────────────────────────────
+# Serve WordPress under /wordpress via alias
+alias.url += ( "/wordpress" => "/var/www/html/wordpress" )
+
+# FastCGI configuration for PHP-FPM
+fastcgi.server += ( ".php" =>
+    (( "socket" => "${PHP_SOCK}",
+       "broken-scriptfilename" => "enable"
+    ))
+)
+
+# URL rewriting for WordPress pretty permalinks
+url.rewrite-if-not-file = (
+    "^/wordpress/(.*)$" => "/wordpress/index.php/$1"
+)
+
+# Ensure index.php is served by default
+index-file.names += ( "index.php" )
+
+# Allow uploads up to 32MB
+server.max-request-size = 32768
+WPLIGHT
+
+lighty-enable-mod wordpress < /dev/null 2>/dev/null || \
+    ln -sf /etc/lighttpd/conf-available/99-wordpress.conf \
+           /etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null || true
+
+# Ensure lighttpd listens on port 80
+if ! grep -q 'server.port' /etc/lighttpd/lighttpd.conf 2>/dev/null; then
+    echo 'server.port = 80' >> /etc/lighttpd/lighttpd.conf
+fi
+echo "[OK] Lighttpd + PHP-FPM + WordPress routing configured"
+
+### ─── 13. AppArmor — mandatory at startup + enforce profiles ────────────────
 systemctl enable apparmor || true
-echo "[OK] AppArmor enabled"
+
+# Create enforcement-ready AppArmor profile for PHP-FPM
+mkdir -p /etc/apparmor.d
+cat > /etc/apparmor.d/local/usr.sbin.php-fpm 2>/dev/null << 'AAEOF' || true
+# Allow PHP-FPM to serve WordPress
+/var/www/html/wordpress/** r,
+/var/www/html/wordpress/wp-content/uploads/** rw,
+/var/www/html/wordpress/wp-content/cache/** rw,
+/tmp/** rw,
+/run/php/** rw,
+AAEOF
+
+# Enforce AppArmor profiles if they exist
+for profile in usr.sbin.php-fpm${PHP_VER} usr.sbin.lighttpd; do
+    if [ -f "/etc/apparmor.d/${profile}" ]; then
+        aa-enforce "/etc/apparmor.d/${profile}" 2>/dev/null || true
+    fi
+done
+echo "[OK] AppArmor enabled + WordPress profiles configured"
 
 ### ─── 14. Enable all services (NO restart — no systemd in chroot) ──────────
 for svc in lighttpd mariadb haveged cron ssh nat-keepalive sshd-watchdog; do
