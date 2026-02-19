@@ -1,14 +1,21 @@
 #!/bin/bash
 # =============================================================================
-# fix_hwe_kernel.sh — Safely remove HWE kernels incompatible with VirtualBox
+# fix_hwe_kernel.sh — Fix VirtualBox vs HWE kernel incompatibility
 #
-# Problem: VirtualBox 7.0.x DKMS fails to build against kernel ≥ 6.13 / 7.x.
-#          If such a kernel is installed (even if not booted), the broken DKMS
-#          state prevents /dev/vboxdrv from loading on ANY kernel.
+# Strategy (in order, least invasive first):
 #
-# Special case: dpkg refuses to remove the *currently running* kernel.
-#               This script detects that, switches GRUB to a safe kernel, and
-#               asks you to reboot. Run it again after rebooting to finish.
+#   1. If VirtualBox 7.1.x is available from Oracle's official APT repo,
+#      upgrade it — 7.1.x supports kernel ≥ 6.13 so no kernel change needed.
+#
+#   2. Otherwise, ensure a safe GA kernel (6.8.x) is INSTALLED ALONGSIDE the
+#      current one, set GRUB to boot into it next time, and ask for a reboot.
+#      On the second run (after reboot into 6.8.x) the HWE kernel is no longer
+#      running, so it can be removed safely.
+#
+# Safety rules:
+#   • The running kernel is NEVER removed — dpkg will refuse and it risks
+#     an unbootable system.
+#   • We only remove a kernel that is NOT currently running.
 # =============================================================================
 
 set -euo pipefail
@@ -17,10 +24,10 @@ set -euo pipefail
 R='\033[0;31m'; Y='\033[1;33m'; G='\033[0;32m'
 B='\033[0;34m'; C='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-info()    { printf "${B}▶${NC} %s\n" "$*"; }
-success() { printf "${G}✓${NC} %s\n" "$*"; }
+info()    { printf "${B}▶${NC} %s\n"  "$*"; }
+success() { printf "${G}✓${NC} %s\n"  "$*"; }
 warn()    { printf "${Y}⚠${NC}  %s\n" "$*"; }
-error()   { printf "${R}✗${NC} %s\n" "$*" >&2; }
+error()   { printf "${R}✗${NC} %s\n"  "$*" >&2; }
 die()     { error "$*"; exit 1; }
 hr()      { printf '%s\n' "────────────────────────────────────────────────────"; }
 
@@ -31,192 +38,224 @@ if [[ "$(id -u)" -ne 0 ]]; then
 fi
 
 hr
-printf "${BOLD}  VirtualBox HWE Kernel Removal Fix${NC}\n"
+printf "${BOLD}  VirtualBox / HWE Kernel Compatibility Fix${NC}\n"
 hr
 
 RUNNING_KERNEL="$(uname -r)"
-info "Running kernel: ${RUNNING_KERNEL}"
+VBOX_VER="$(VBoxManage --version 2>/dev/null | cut -d'r' -f1 || echo unknown)"
+info "Running kernel : ${RUNNING_KERNEL}"
+info "VirtualBox ver : ${VBOX_VER}"
 
-# ── Discover incompatible kernels ────────────────────────────────────────────
-# Incompatible: linux-image-6.13+ or linux-image-7.x+
-mapfile -t BAD_PKGS < <(
+# ── Helper: major version number of installed VirtualBox ─────────────────────
+vbox_major() {
+    VBoxManage --version 2>/dev/null | grep -oP '^\d+\.\d+' | tr -d '.' || echo 0
+}
+
+# ── STEP 1: Try upgrading VirtualBox to 7.1.x (Oracle repo) ──────────────────
+# VirtualBox 7.1+ supports kernel ≥ 6.13, eliminating the need to touch kernels.
+try_upgrade_virtualbox() {
+    hr
+    info "Step 1 — Trying to upgrade VirtualBox to 7.1.x from Oracle repo..."
+
+    if ! command -v curl &>/dev/null; then
+        apt-get install -y curl
+    fi
+
+    # Add Oracle APT key + repo if not already present
+    if [[ ! -f /etc/apt/sources.list.d/virtualbox.list ]]; then
+        info "Adding Oracle VirtualBox APT repository..."
+        curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc \
+            | gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] \
+https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" \
+            > /etc/apt/sources.list.d/virtualbox.list
+    fi
+    apt-get update -qq
+
+    if apt-cache show virtualbox-7.1 &>/dev/null; then
+        info "Found virtualbox-7.1 — installing..."
+        apt-get remove -y virtualbox virtualbox-7.0 2>/dev/null || true
+        apt-get install -y virtualbox-7.1
+        dpkg --configure -a
+        modprobe vboxdrv 2>/dev/null || true
+        if test -c /dev/vboxdrv; then
+            success "VirtualBox 7.1 installed — /dev/vboxdrv ready. No kernel change needed."
+        else
+            warn "/dev/vboxdrv still absent after upgrade; DKMS may need a rebuild."
+            info "Try: sudo apt install --reinstall virtualbox-dkms && sudo modprobe vboxdrv"
+        fi
+        return 0
+    else
+        warn "virtualbox-7.1 not found in APT cache. Falling back to kernel install."
+        return 1
+    fi
+}
+
+# ── STEP 2: Install GA kernel alongside current, set GRUB, prompt reboot ──────
+# Never touches the running kernel — only adds a new one.
+install_safe_kernel_and_set_grub() {
+    hr
+    info "Step 2 — Installing a compatible GA kernel alongside ${RUNNING_KERNEL}..."
+    info "  The running kernel will NOT be touched."
+
+    apt-get update -qq
+    apt-get install -y linux-image-generic linux-headers-generic
+
+    # Re-scan for safe kernels
+    mapfile -t SAFE_IMGS < <(
+        dpkg -l 2>/dev/null \
+            | awk '/^ii.*linux-image-[0-9]/{print $2}' \
+            | grep -vE 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
+            || true
+    )
+
+    if [[ "${#SAFE_IMGS[@]}" -eq 0 ]]; then
+        die "linux-image-generic installed but no safe kernel detected. Check apt output above."
+    fi
+
+    SAFE_PKG="$(printf '%s\n' "${SAFE_IMGS[@]}" | sort -V | tail -1)"
+    SAFE_VER="${SAFE_PKG#linux-image-}"
+    success "Safe kernel available: ${SAFE_VER}"
+
+    # Run update-grub so the new kernel appears in grub.cfg
+    update-grub 2>/dev/null || true
+
+    GRUB_CFG="/boot/grub/grub.cfg"
+    [[ -f "$GRUB_CFG" ]] || { warn "grub.cfg not found — skipping grub-set-default"; return; }
+
+    GRUB_ENTRY="$(grep -oP "(?<=menuentry ')[^']*${SAFE_VER}[^']*(?=')" "$GRUB_CFG" 2>/dev/null \
+        | grep -iv recovery | head -1 || true)"
+    [[ -z "$GRUB_ENTRY" ]] && GRUB_ENTRY="$(grep -oP "(?<=menuentry \")[^\"]*${SAFE_VER}[^\"]*(?=\")" \
+        "$GRUB_CFG" 2>/dev/null | grep -iv recovery | head -1 || true)"
+
+    if [[ -n "$GRUB_ENTRY" ]]; then
+        if ! grep -q '^GRUB_DEFAULT=saved' /etc/default/grub 2>/dev/null; then
+            cp /etc/default/grub /etc/default/grub.bak
+            sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
+            info "Set GRUB_DEFAULT=saved (backup: /etc/default/grub.bak)"
+        fi
+        grub-set-default "$GRUB_ENTRY"
+        update-grub 2>/dev/null || true
+        success "GRUB next boot: '${GRUB_ENTRY}'"
+    else
+        warn "Could not find GRUB entry for ${SAFE_VER} automatically."
+        warn "At boot, select '${SAFE_VER}' from the GRUB menu manually."
+    fi
+
+    hr
+    printf "${Y}${BOLD}  ACTION REQUIRED — reboot needed${NC}\n"
+    hr
+    printf "  ✔  GA kernel ${G}${SAFE_VER}${NC} installed and set as next boot target.\n"
+    printf "  ✘  HWE kernel ${R}${RUNNING_KERNEL}${NC} is still running — cannot remove it yet.\n\n"
+    printf "  After rebooting into ${G}${SAFE_VER}${NC}, run:\n"
+    printf "    ${G}make fix_hwe${NC}\n"
+    printf "  …to finish removing linux-image-${RUNNING_KERNEL}.\n"
+    hr
+
+    read -r -p "$(printf "${C}Reboot now?${NC} [y/N] ")" REPLY || REPLY="n"
+    if [[ "${REPLY,,}" == "y" ]]; then
+        info "Rebooting in 5 seconds... (Ctrl-C to cancel)"
+        sleep 5
+        reboot
+    else
+        warn "Reboot skipped. VirtualBox will not work until you reboot into ${SAFE_VER}."
+    fi
+}
+
+# ── STEP 3: Remove stale HWE kernels that are NOT running ────────────────────
+remove_non_running_hwe_kernels() {
+    mapfile -t BAD_PKGS < <(
+        dpkg -l 2>/dev/null \
+            | awk '/^ii.*linux-image-[0-9]/{print $2}' \
+            | grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
+            || true
+    )
+    [[ "${#BAD_PKGS[@]}" -eq 0 ]] && return 0
+
+    REMOVABLE=()
+    for pkg in "${BAD_PKGS[@]}"; do
+        ver="${pkg#linux-image-}"
+        if [[ "$ver" == "$RUNNING_KERNEL" ]]; then
+            warn "Skipping linux-image-${ver} — it is the running kernel."
+        else
+            REMOVABLE+=("$pkg")
+            for extra in "linux-headers-${ver}" "linux-modules-${ver}" "linux-modules-extra-${ver}"; do
+                dpkg -l "$extra" &>/dev/null && REMOVABLE+=("$extra") || true
+            done
+        fi
+    done
+
+    [[ "${#REMOVABLE[@]}" -eq 0 ]] && return 0
+
+    info "Removing stale HWE package(s): ${REMOVABLE[*]}"
+    apt-get remove -y "${REMOVABLE[@]}" || warn "Some packages could not be removed (non-fatal)"
+    apt-get autoremove -y              || warn "apt autoremove had issues (non-fatal)"
+    dpkg --configure -a                || warn "dpkg --configure -a reported issues"
+
+    info "Reloading VirtualBox kernel driver..."
+    modprobe vboxdrv 2>/dev/null && success "vboxdrv loaded" \
+        || warn "modprobe vboxdrv failed — try: sudo apt install --reinstall virtualbox-dkms"
+
+    success "Stale HWE kernels removed."
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+mapfile -t ALL_BAD < <(
     dpkg -l 2>/dev/null \
         | awk '/^ii.*linux-image-[0-9]/{print $2}' \
         | grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
         || true
 )
 
-if [[ "${#BAD_PKGS[@]}" -eq 0 ]]; then
+if [[ "${#ALL_BAD[@]}" -eq 0 ]]; then
     success "No incompatible HWE kernels found — nothing to do."
+    test -c /dev/vboxdrv && success "/dev/vboxdrv is ready. 'make start_vm' should work."
     exit 0
 fi
 
-info "Incompatible kernel package(s) found:"
-for pkg in "${BAD_PKGS[@]}"; do
-    printf "   ${Y}•${NC} %s\n" "$pkg"
+info "Incompatible kernel package(s) detected:"
+for pkg in "${ALL_BAD[@]}"; do
+    ver="${pkg#linux-image-}"
+    if [[ "$ver" == "$RUNNING_KERNEL" ]]; then
+        printf "   ${R}•${NC} %s  ${R}← running, cannot remove yet${NC}\n" "$pkg"
+    else
+        printf "   ${Y}•${NC} %s\n" "$pkg"
+    fi
 done
 hr
 
-# ── Separate running vs removable ────────────────────────────────────────────
-RUNNING_IN_LIST=false
-REMOVE_NOW=()
-for pkg in "${BAD_PKGS[@]}"; do
-    ver="${pkg#linux-image-}"          # strip prefix → e.g. 6.17.0-14-generic
-    if [[ "$ver" == "$RUNNING_KERNEL" ]]; then
-        RUNNING_IN_LIST=true
-    else
-        REMOVE_NOW+=("$pkg")
-    fi
+# Is the running kernel among the bad ones?
+RUNNING_IS_BAD=false
+for pkg in "${ALL_BAD[@]}"; do
+    [[ "${pkg#linux-image-}" == "$RUNNING_KERNEL" ]] && RUNNING_IS_BAD=true && break
 done
 
-# ── Helper: remove safe (non-running) packages ───────────────────────────────
-remove_safe_packages() {
-    if [[ "${#REMOVE_NOW[@]}" -eq 0 ]]; then
-        return 0
+if $RUNNING_IS_BAD; then
+    # Check if already on VBox 7.1+ (reported incompatible may be false alarm)
+    MAJOR="$(vbox_major)"
+    if [[ "$MAJOR" -ge 71 ]]; then
+        success "VirtualBox ${VBOX_VER} already supports kernel ${RUNNING_KERNEL}."
+        info "Cleaning up any leftover non-running HWE kernels..."
+        remove_non_running_hwe_kernels
+        exit 0
     fi
 
-    info "Removing non-running incompatible kernel(s): ${REMOVE_NOW[*]}"
+    warn "VirtualBox ${VBOX_VER} is incompatible with running kernel ${RUNNING_KERNEL}."
+    printf "  Trying best fix first: upgrade VirtualBox → then install GA kernel if needed.\n"
+    hr
 
-    # Also remove matching headers/modules if present
-    EXTRA=()
-    for pkg in "${REMOVE_NOW[@]}"; do
-        ver="${pkg#linux-image-}"
-        for extra_pkg in "linux-headers-${ver}" "linux-modules-${ver}" "linux-modules-extra-${ver}"; do
-            if dpkg -l "$extra_pkg" &>/dev/null; then
-                EXTRA+=("$extra_pkg")
-            fi
-        done
-    done
-
-    apt-get remove -y "${REMOVE_NOW[@]}" "${EXTRA[@]}" || {
-        error "apt remove failed for some packages — continuing to dpkg --configure -a"
-    }
-
-    info "Running apt autoremove..."
-    apt-get autoremove -y || warn "apt autoremove encountered issues (non-fatal)"
-
-    info "Finalising dpkg configuration..."
-    dpkg --configure -a || warn "dpkg --configure -a reported issues (check output above)"
-
-    info "Reloading VirtualBox kernel driver..."
-    if modprobe vboxdrv 2>/dev/null; then
-        success "vboxdrv loaded"
+    if try_upgrade_virtualbox; then
+        remove_non_running_hwe_kernels
     else
-        warn "modprobe vboxdrv failed — you may need to reinstall virtualbox-dkms"
-        printf "    ${Y}Run:${NC} sudo apt install --reinstall virtualbox-dkms\n"
-    fi
-
-    success "Non-running kernels removed."
-}
-
-# ── Helper: switch GRUB default to a safe kernel ─────────────────────────────
-switch_grub_to_safe_kernel() {
-    # Find all installed kernels that are NOT bad
-    mapfile -t ALL_IMGS < <(
-        dpkg -l 2>/dev/null \
-            | awk '/^ii.*linux-image-[0-9]/{print $2}' \
-            | grep -v -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
-            || true
-    )
-
-    if [[ "${#ALL_IMGS[@]}" -eq 0 ]]; then
-        die "No safe kernel found to switch to. Aborting — do NOT remove the current kernel manually."
-    fi
-
-    # Pick the most recent safe kernel by version sort
-    SAFE_PKG="$(printf '%s\n' "${ALL_IMGS[@]}" | sort -V | tail -1)"
-    SAFE_VER="${SAFE_PKG#linux-image-}"
-    info "Safe kernel to switch to: ${SAFE_VER} (package: ${SAFE_PKG})"
-
-    if [[ ! -f "/boot/vmlinuz-${SAFE_VER}" ]]; then
-        warn "/boot/vmlinuz-${SAFE_VER} not found on disk — trying to install ${SAFE_PKG}..."
-        apt-get install -y "$SAFE_PKG" || die "Could not install ${SAFE_PKG}"
-    fi
-
-    # Locate the GRUB menu entry title for the safe kernel
-    GRUB_CFG="/boot/grub/grub.cfg"
-    if [[ ! -f "$GRUB_CFG" ]]; then
-        die "${GRUB_CFG} not found. Is GRUB installed?"
-    fi
-
-    # Match: menuentry 'Ubuntu, with Linux 6.8.0-100-generic' (single or double quotes)
-    GRUB_ENTRY="$(
-        grep -oP "(?<=menuentry ')[^']*${SAFE_VER}[^']*(?=')" "$GRUB_CFG" | head -1 \
-        || grep -oP "(?<=menuentry \")[^\"]*${SAFE_VER}[^\"]*(?=\")" "$GRUB_CFG" | head -1 \
-        || true
-    )"
-
-    if [[ -z "$GRUB_ENTRY" ]]; then
-        warn "Could not find GRUB entry for ${SAFE_VER} in ${GRUB_CFG}."
-        warn "Run 'update-grub' first then reboot and pick the kernel from the menu."
-        info "Updating GRUB anyway..."
-        update-grub
-        return
-    fi
-
-    info "Found GRUB entry: ${GRUB_ENTRY}"
-
-    # Ensure GRUB uses saved default
-    if ! grep -q '^GRUB_DEFAULT=saved' /etc/default/grub; then
-        cp /etc/default/grub /etc/default/grub.bak
-        sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
-        info "Set GRUB_DEFAULT=saved in /etc/default/grub (backup: /etc/default/grub.bak)"
-    fi
-
-    grub-set-default "$GRUB_ENTRY"
-    update-grub
-    success "GRUB will boot into '${GRUB_ENTRY}' on next start."
-}
-
-# ── Main logic ────────────────────────────────────────────────────────────────
-remove_safe_packages
-
-if $RUNNING_IN_LIST; then
-    hr
-    warn "The currently running kernel (${RUNNING_KERNEL}) is incompatible."
-    warn "dpkg refuses to remove it while it is running."
-    hr
-    info "Switching GRUB default to a safe kernel..."
-    switch_grub_to_safe_kernel
-
-    # Also remove the running kernel's headers/modules NOW (those are safe)
-    RUN_PKG_PREFIX="linux-image-${RUNNING_KERNEL}"
-    PURGEABLE=()
-    for extra_pkg in \
-        "linux-headers-${RUNNING_KERNEL}" \
-        "linux-modules-${RUNNING_KERNEL}" \
-        "linux-modules-extra-${RUNNING_KERNEL}"; do
-        if dpkg -l "$extra_pkg" &>/dev/null 2>&1; then
-            PURGEABLE+=("$extra_pkg")
-        fi
-    done
-
-    if [[ "${#PURGEABLE[@]}" -gt 0 ]]; then
-        info "Removing headers/modules for running kernel (safe to do now): ${PURGEABLE[*]}"
-        apt-get remove -y "${PURGEABLE[@]}" || warn "Some header/module packages could not be removed"
-    fi
-
-    hr
-    printf "${Y}${BOLD}ACTION REQUIRED:${NC}\n"
-    printf "  Reboot into kernel ${G}$(uname -r | sed "s/${RUNNING_KERNEL}/$(dpkg -l 2>/dev/null | awk '/^ii.*linux-image-[0-9]/{print $2}' | grep -v -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' | sort -V | tail -1 | sed 's/linux-image-//')/g")${NC} then run:\n\n" 2>/dev/null || true
-    printf "  Reboot into the safe kernel, then run:\n\n"
-    printf "    ${G}sudo bash fixes/fix_hwe_kernel.sh${NC}\n\n"
-    printf "  …to complete the removal of linux-image-${RUNNING_KERNEL}.\n"
-    hr
-
-    read -r -p "$(printf "${C}Reboot now?${NC} [y/N] ")" REPLY
-    if [[ "${REPLY,,}" == "y" ]]; then
-        info "Rebooting in 5 seconds... (Ctrl-C to cancel)"
-        sleep 5
-        reboot
-    else
-        warn "Reboot skipped. Remember to reboot before VirtualBox will work."
+        install_safe_kernel_and_set_grub
     fi
 else
-    success "All incompatible kernels removed. VirtualBox should now work correctly."
-    if test -c /dev/vboxdrv; then
-        success "/dev/vboxdrv is present — ready to run 'make start_vm'"
-    else
-        warn "/dev/vboxdrv still missing. Try: sudo modprobe vboxdrv"
-    fi
+    info "Running kernel is safe. Removing non-running incompatible kernel(s)..."
+    remove_non_running_hwe_kernels
+    hr
+    success "Done."
+    test -c /dev/vboxdrv \
+        && success "/dev/vboxdrv is ready — 'make start_vm' should work." \
+        || warn "/dev/vboxdrv missing — try: sudo modprobe vboxdrv"
 fi
