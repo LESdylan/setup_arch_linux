@@ -438,6 +438,19 @@ else
     draw_dashboard
 fi
 
+run_nodejs_installer() {
+    local script_path="./setup/install/install_nodejs.sh"
+    [ -f "$script_path" ] || { echo "Missing: $script_path"; return 1; }
+    chmod +x "$script_path"
+    sudo -E bash "$script_path"
+}
+
+# Step 5 - Node.js / npm / pnpm
+run_step 4 run_nodejs_installer
+STEP_DETAIL[4]="node/npm/pnpm ready"; draw_dashboard
+    # run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
+    # STEP_DETAIL[3]="installing..."; draw_dashboard
+
 # ── Read actual ports from VM config (no hardcoding) ─────────────────────────
 get_vm_port() {
     # Extract host port from a NAT forwarding rule
