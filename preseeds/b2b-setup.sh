@@ -9,6 +9,8 @@
 set +e  # Don't exit on errors — best effort
 export DEBIAN_FRONTEND=noninteractive
 export DEBCONF_NONINTERACTIVE_SEEN=true
+# Added next PATH chroot environment
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 LOG=/var/log/b2b-setup.log
 exec > >(tee -a "$LOG") 2>&1
@@ -53,6 +55,45 @@ $APT git git-lfs build-essential gcc g++ make cmake \
      lsof strace ltrace \
      jq bc || true
 echo "[OK] Developer tools"
+
+### ─── 2b. Third-Party Repos & Quality Tools (DevOps, Linters) ───────────────
+# Fix PATH para el entorno chroot
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+echo "Configuring third-party repositories..."
+
+# 1. MongoDB (Usamos [trusted=yes] para bypassear el bloqueo de SHA-1 de Debian Trixie)
+echo "deb [trusted=yes] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > /etc/apt/sources.list.d/mongodb-org-7.0.list
+
+# 2. Kubernetes (Usamos [trusted=yes] para bypassear el bloqueo de firmas v3)
+echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
+
+# Update APT e instalamos Mongo, K8s y PIPX
+apt-get update -qq || true
+$APT mongodb-org kubectl pipx || true
+echo "[OK] MongoDB, Kubectl and Pipx installed"
+
+# Enable MongoDB service (arrancará en el próximo reboot real)
+systemctl enable mongod 2>/dev/null || true
+
+# 3. NPM Global Packages
+echo "Installing NPM global packages..."
+npm install -g eslint prettier snyk || true
+echo "[OK] NPM packages installed"
+
+# 4. Python Global Packages via PIPX (El estándar para Debian 12/13)
+echo "Installing Python global packages via pipx..."
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install sqlfluff || true
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install ruff || true
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install checkov || true
+echo "[OK] Python packages installed"
+
+# 5. Golangci-lint & Helm
+echo "Installing Go linters and Helm..."
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin || true
+curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash || true
+echo "[OK] Golangci-lint and Helm installed"
+### ───────────────────────────────────────────────────────────────────────────
 
 ### ─── 3. Hostname — Born2beRoot requires login+42 ───────────────────────────
 echo "dlesieur42" > /etc/hostname
