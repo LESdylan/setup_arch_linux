@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -eo pipefail
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -22,31 +22,41 @@ error() {
     exit 1
 }
 
-# Check if script is run as root
-if [[ $EUID -ne 0 ]]; then
-   error "This script must be run as root or with sudo"
+# nvm is per-user and should not be installed as root
+if [[ "${EUID}" -eq 0 ]]; then
+    error "Run this script as a normal user (not root/sudo)"
 fi
 
-# Check if Node.js is already installed
-if command -v node &>/dev/null; then
-    log "Node.js is already installed"
+# Check if Node.js toolchain is already installed
+if command -v node &>/dev/null && command -v npm &>/dev/null && command -v pnpm &>/dev/null; then
+    log "Node.js, npm, and pnpm are already installed"
     exit 0
 fi
 
-# Install Node.js via NodeSource
-log "Installing Node.js..."
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-\. "$HOME/.nvm/nvm.sh"
+# Install nvm + Node.js
+command -v curl &>/dev/null || error "curl is required"
+
+log "Installing nvm..."
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+
+export NVM_DIR="$HOME/.nvm"
+# shellcheck disable=SC1091
+source "$NVM_DIR/nvm.sh"
+
+log "Installing Node.js 22..."
 nvm install 22
+nvm alias default 22
+nvm use 22
 
 # Check if Node.js and NPM were installed successfully
 if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
     error "Node.js or NPM installation failed"
 fi
 
-# Installing PNPM globally
-log "Installing PNPM globally..."
-npm install -g pnpm
+# Installing PNPM via Corepack
+log "Installing PNPM..."
+corepack enable
+corepack prepare pnpm@latest --activate
 
 # Check if PNPM was installed successfully
 if ! command -v pnpm &>/dev/null; then
@@ -55,7 +65,7 @@ fi
 
 # Add information about removal
 log "To uninstall Node in the future, run:"
-echo "  sudo nvm uninstall 22"
-echo "  sudo rm -rf ~/.nvm"
+echo "  nvm uninstall 22"
+echo "  rm -rf ~/.nvm"
 
 log "Installation completed successfully!"

@@ -103,9 +103,9 @@ crow() {
 }
 
 # ── Step tracking ────────────────────────────────────────────────────────────
-STEPS=("VirtualBox" "Preseeded ISO" "VM Setup" "VM Start")
-STEP_STATUS=("pending" "pending" "pending" "pending")
-STEP_DETAIL=("" "" "" "")
+STEPS=("VirtualBox" "Preseeded ISO" "VM Setup" "VM Start" "Node.js")
+STEP_STATUS=("pending" "pending" "pending" "pending" "pending")
+STEP_DETAIL=("" "" "" "" "")
 DASHBOARD_LINES=0
 
 # Braille spinner (static frame per step — no background process)
@@ -438,19 +438,6 @@ else
     draw_dashboard
 fi
 
-run_nodejs_installer() {
-    local script_path="./setup/install/install_nodejs.sh"
-    [ -f "$script_path" ] || { echo "Missing: $script_path"; return 1; }
-    chmod +x "$script_path"
-    sudo -E bash "$script_path"
-}
-
-# Step 5 - Node.js / npm / pnpm
-run_step 4 run_nodejs_installer
-STEP_DETAIL[4]="node/npm/pnpm ready"; draw_dashboard
-    # run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
-    # STEP_DETAIL[3]="installing..."; draw_dashboard
-
 # ── Read actual ports from VM config (no hardcoding) ─────────────────────────
 get_vm_port() {
     # Extract host port from a NAT forwarding rule
@@ -585,6 +572,48 @@ setup_ssh_key_auth() {
     fi
     echo "  ℹ SSH key will be auto-copied to VM after first boot (via orchestrator wait loop)"
 }
+
+run_nodejs_installer() {
+    local script_path="./setup/install/install_nodejs.sh"
+    local ssh_port
+    local vm_user="${VM_SSH_USER:-dlesieur}"
+
+    [ -f "$script_path" ] || { echo "Missing: $script_path"; return 1; }
+
+    ssh_port=$P_SSH
+    [ -n "$ssh_port" ] || { echo "No SSH NAT forwarding rule found for VM"; return 1; }
+
+    local max_wait=120
+    local waited=0
+    while [ "$waited" -lt "$max_wait" ]; do
+        if ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=3 "${vm_user}@127.0.0.1" "echo ok" >/dev/null 2>&1; then
+            break
+        fi
+        sleep 2
+        waited=$((waited + 2))
+    done
+    [ "$waited" -lt "$max_wait" ] || { echo "VM SSH did not become ready"; return 1; }
+
+    chmod +x "$script_path"
+
+    scp -P "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "$script_path" "${vm_user}@127.0.0.1:/tmp/install_nodejs.sh" || return 1
+
+    ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "${vm_user}@127.0.0.1" "chmod +x /tmp/install_nodejs.sh && bash /tmp/install_nodejs.sh" || return 1
+
+    ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+        "${vm_user}@127.0.0.1" "source ~/.nvm/nvm.sh && node -v && npm -v && pnpm -v" || return 1
+}
+
+# ...existing code...
+
+# Step 5 - Node.js / npm / pnpm
+run_step 4 run_nodejs_installer
+STEP_DETAIL[4]="node/npm/pnpm ready"; draw_dashboard
+# run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
+# STEP_DETAIL[3]="installing..."; draw_dashboard
 
 setup_host_ssh_config 2>/dev/null || true
 setup_vscode_remote_ssh 2>/dev/null || true
