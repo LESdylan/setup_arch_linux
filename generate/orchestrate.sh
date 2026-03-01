@@ -134,9 +134,9 @@ crow() {
 }
 
 # ── Step tracking ────────────────────────────────────────────────────────────
-STEPS=("VirtualBox" "Preseeded ISO" "VM Setup" "VM Start" "Node.js")
-STEP_STATUS=("pending" "pending" "pending" "pending" "pending")
-STEP_DETAIL=("" "" "" "" "")
+STEPS=("VirtualBox" "Preseeded ISO" "VM Setup" "VM Start")
+STEP_STATUS=("pending" "pending" "pending" "pending")
+STEP_DETAIL=("" "" "" "")
 DASHBOARD_LINES=0
 
 # Braille spinner (static frame per step — no background process)
@@ -337,7 +337,20 @@ if VBoxManage showvminfo "${VM_NAME}" > /dev/null 2>&1; then
 		VM_OK=true
 	else
 		# Stale VM registration — disk is missing, clean it up
-		VBoxManage unregistervm "${VM_NAME}" --delete 2> /dev/null || true
+		# Must power off first if running, otherwise unregister fails
+		_vm_state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+			| grep "^VMState=" | cut -d'"' -f2)
+		if [ "$_vm_state" = "running" ] || [ "$_vm_state" = "paused" ] || [ "$_vm_state" = "stuck" ]; then
+			VBoxManage controlvm "${VM_NAME}" poweroff 2> /dev/null || true
+			sleep 3
+			# Wait for session lock to release
+			for _i in $(seq 1 10); do
+				VBoxManage modifyvm "${VM_NAME}" --description "" 2> /dev/null && break
+				sleep 1
+			done
+		fi
+		VBoxManage unregistervm "${VM_NAME}" --delete 2> /dev/null || \
+			VBoxManage unregistervm "${VM_NAME}" 2> /dev/null || true
 	fi
 fi
 
@@ -619,6 +632,14 @@ s['remote.SSH.useExecServer'] = False
 s['remote.SSH.connectTimeout'] = 60
 s['remote.SSH.showLoginTerminal'] = True
 
+# Suppress TypeScript/ESLint noise for containerized projects (Alpine Docker)
+# The actual node_modules live inside Docker containers, not on the VM filesystem.
+# Without these, VS Code floods the editor with false-positive errors.
+s.setdefault('typescript.validate.enable', True)
+s['typescript.tsserver.experimental.enableProjectDiagnostics'] = False
+s['eslint.workingDirectories'] = [{'mode': 'auto'}]
+s['typescript.disableAutomaticTypeAcquisition'] = True
+
 with open('$vscode_settings', 'w') as f:
     json.dump(s, f, indent=4)
 " 2> /dev/null && echo "  ✓ VS Code Remote SSH settings configured (Terminal Mode, no SOCKS proxy)" || true
@@ -637,75 +658,6 @@ setup_ssh_key_auth() {
 	fi
 	echo "  ℹ SSH key will be auto-copied to VM after first boot (via orchestrator wait loop)"
 }
-
-run_nodejs_installer() {
-	local script_path="./setup/install/install_nodejs.sh"
-	local ssh_port
-	local vm_user="${VM_SSH_USER:-dlesieur}"
-	local ssh_opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5"
-
-	[ -f "$script_path" ] || {
-		echo "Missing: $script_path"
-		return 1
-	}
-
-	ssh_port=$P_SSH
-	[ -n "$ssh_port" ] || {
-		echo "No SSH NAT forwarding rule found for VM"
-		return 1
-	}
-
-	# ── Phase 1: Wait for SSH ────────────────────────────────────────────
-	local max_wait=180
-	local waited=0
-	STEP_DETAIL[4]="waiting for SSH (0/${max_wait}s)..."
-	draw_dashboard
-	while [ "$waited" -lt "$max_wait" ]; do
-		if ssh -p "$ssh_port" $ssh_opts \
-			"${vm_user}@127.0.0.1" "echo ok" > /dev/null 2>&1; then
-			break
-		fi
-		sleep 3
-		waited=$((waited + 3))
-		STEP_DETAIL[4]="waiting for SSH (${waited}/${max_wait}s)..."
-		draw_dashboard
-	done
-	if [ "$waited" -ge "$max_wait" ]; then
-		echo "VM SSH did not become ready after ${max_wait}s"
-		echo "Hint: VM may still be booting or disk encryption passphrase is needed"
-		return 1
-	fi
-
-	# ── Phase 2: Upload installer ────────────────────────────────────────
-	STEP_DETAIL[4]="uploading installer..."
-	draw_dashboard
-	chmod +x "$script_path"
-	scp -P "$ssh_port" $ssh_opts \
-		"$script_path" "${vm_user}@127.0.0.1:/tmp/install_nodejs.sh" || return 1
-
-	# ── Phase 3: Run installer inside VM ─────────────────────────────────
-	STEP_DETAIL[4]="installing nvm + node + pnpm (this takes ~1-2 min)..."
-	draw_dashboard
-	ssh -p "$ssh_port" $ssh_opts \
-		"${vm_user}@127.0.0.1" "chmod +x /tmp/install_nodejs.sh && bash /tmp/install_nodejs.sh" || return 1
-
-	# ── Phase 4: Verify installation ─────────────────────────────────────
-	STEP_DETAIL[4]="verifying installation..."
-	draw_dashboard
-	local versions
-	versions=$(ssh -p "$ssh_port" $ssh_opts \
-		"${vm_user}@127.0.0.1" "source ~/.nvm/nvm.sh 2>/dev/null; echo \"node=\$(node -v 2>/dev/null || echo N/A) npm=\$(npm -v 2>/dev/null || echo N/A) pnpm=\$(pnpm -v 2>/dev/null || echo N/A)\"" 2> /dev/null) || return 1
-	echo "$versions"
-}
-
-# ...existing code...
-
-# Step 5 - Node.js / npm / pnpm
-run_step 4 run_nodejs_installer
-STEP_DETAIL[4]="node/npm/pnpm ready"
-draw_dashboard
-# run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
-# STEP_DETAIL[3]="installing..."; draw_dashboard
 
 setup_host_ssh_config 2> /dev/null || true
 setup_vscode_remote_ssh 2> /dev/null || true

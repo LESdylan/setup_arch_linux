@@ -137,17 +137,31 @@ print_header "DEBUG INFO"
 echo "Checking for existing VMs:"
 VBoxManage list vms
 
-# Fixed VM existence check with improved error handling
-VM_EXISTS=""
+# If a stale VM with the same name exists, force-remove it before creating fresh
 if VBoxManage list vms | grep -q "\"$VM_NAME\""; then
-	VM_EXISTS="yes"
-	print_header "VM already exists - Keeping existing configuration"
-	echo "If this is incorrect, you can remove the VM with:"
-	echo "VBoxManage unregistervm \"$VM_NAME\" --delete"
-	exit 0
-else
-	print_header "Creating new VM - No existing VM found"
+	print_header "Removing stale VM \"$VM_NAME\" before fresh creation"
+	# Power off if running
+	local_state=$(VBoxManage showvminfo "$VM_NAME" --machinereadable 2>/dev/null \
+		| grep "^VMState=" | cut -d'"' -f2)
+	if [ "$local_state" = "running" ] || [ "$local_state" = "paused" ]; then
+		echo "  VM is $local_state — powering off..."
+		VBoxManage controlvm "$VM_NAME" poweroff 2>/dev/null || true
+		sleep 3
+		# Wait for session lock to release
+		for _i in $(seq 1 10); do
+			VBoxManage modifyvm "$VM_NAME" --description "" 2>/dev/null && break
+			sleep 1
+		done
+	fi
+	VBoxManage unregistervm "$VM_NAME" --delete 2>/dev/null || {
+		echo "  --delete failed, unregistering and cleaning files manually"
+		VBoxManage unregistervm "$VM_NAME" 2>/dev/null || true
+		rm -rf "$VM_PATH/$VM_NAME" 2>/dev/null || true
+	}
+	echo "  ✓ Stale VM removed"
 fi
+
+print_header "Creating new VM"
 
 echo "Using preseeded ISO: $PRESEED_ISO"
 echo "ISO path: $ISO_PATH"

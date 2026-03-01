@@ -2,14 +2,19 @@
 # Born2beRoot post-installation setup script
 # Runs inside in-target (chroot to /target) during d-i late_command
 # ─────────────────────────────────────────────────────────────────
-# IMPORTANT: Docker can NOT be installed here (no systemd, limited
-# network in chroot). Docker is installed by first-boot-setup.sh
-# which runs on the first real boot with full network + systemd.
+# ARCHITECTURE:
+#   b2b-setup.sh  → runs in chroot during install (no systemd, limited net)
+#                   ONLY installs Debian repo packages + configures B2B
+#   first-boot-setup.sh → runs on first real boot with full systemd + network
+#                   installs Docker, WordPress, third-party tools (npm, pipx, etc.)
+#
+# CRITICAL: All Born2beRoot mandatory configuration MUST run before any
+# network downloads. A hung `curl|sh` or `npm install` in chroot would
+# block the entire script and leave the system un-configured.
 # ─────────────────────────────────────────────────────────────────
 set +e # Don't exit on errors — best effort
 export DEBIAN_FRONTEND=noninteractive
 export DEBCONF_NONINTERACTIVE_SEEN=true
-# Added next PATH chroot environment
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 LOG=/var/log/b2b-setup.log
@@ -18,15 +23,26 @@ exec > >(tee -a "$LOG") 2>&1
 echo "=== Born2beRoot setup starting ($(date)) ==="
 
 ### ─── 1. APT sources ────────────────────────────────────────────────────────
-cat > /etc/apt/sources.list << 'SRCEOF'
-deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
-deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+# Detect the installed release codename — do NOT blindly switch to a different
+# release. Mixing releases (e.g. bookworm base + trixie packages) causes
+# dependency conflicts that break dpkg and prevent GRUB from configuring.
+RELEASE=$(. /etc/os-release 2>/dev/null && echo "$VERSION_CODENAME" || echo "")
+if [ -z "$RELEASE" ]; then
+	# Fallback: try lsb_release
+	RELEASE=$(lsb_release -cs 2>/dev/null || echo "bookworm")
+fi
+echo "[INFO] Detected release: $RELEASE"
+
+# Use the detected release for all repos — consistent with base install
+cat > /etc/apt/sources.list << SRCEOF
+deb http://deb.debian.org/debian ${RELEASE} main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian ${RELEASE}-updates main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security ${RELEASE}-security main contrib non-free non-free-firmware
 SRCEOF
 
 apt-get clean
 apt-get update -qq || true
-echo "[OK] APT sources configured"
+echo "[OK] APT sources configured for $RELEASE"
 
 ### ─── 2. Install packages (all available in base repos) ─────────────────────
 APT="apt-get install -y -qq -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold"
@@ -56,44 +72,10 @@ $APT git git-lfs build-essential gcc g++ make cmake \
 	jq bc || true
 echo "[OK] Developer tools"
 
-### ─── 2b. Third-Party Repos & Quality Tools (DevOps, Linters) ───────────────
-# Fix PATH para el entorno chroot
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-echo "Configuring third-party repositories..."
-
-# 1. MongoDB (Usamos [trusted=yes] para bypassear el bloqueo de SHA-1 de Debian Trixie)
-echo "deb [trusted=yes] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > /etc/apt/sources.list.d/mongodb-org-7.0.list
-
-# 2. Kubernetes (Usamos [trusted=yes] para bypassear el bloqueo de firmas v3)
-echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
-
-# Update APT e instalamos Mongo, K8s y PIPX
-apt-get update -qq || true
-$APT mongodb-org kubectl pipx || true
-echo "[OK] MongoDB, Kubectl and Pipx installed"
-
-# Enable MongoDB service (arrancará en el próximo reboot real)
-systemctl enable mongod 2> /dev/null || true
-
-# 3. NPM Global Packages
-echo "Installing NPM global packages..."
-npm install -g eslint prettier snyk || true
-echo "[OK] NPM packages installed"
-
-# 4. Python Global Packages via PIPX (El estándar para Debian 12/13)
-echo "Installing Python global packages via pipx..."
-PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install sqlfluff || true
-PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install ruff || true
-PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install checkov || true
-echo "[OK] Python packages installed"
-
-# 5. Golangci-lint & Helm
-echo "Installing Go linters and Helm..."
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin || true
-curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash || true
-echo "[OK] Golangci-lint and Helm installed"
-### ───────────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════
+# BORN2BEROOT MANDATORY CONFIGURATION
+# Everything below MUST succeed — no network downloads, no external deps.
+# ═══════════════════════════════════════════════════════════════════════════
 
 ### ─── 3. Hostname — Born2beRoot requires login+42 ───────────────────────────
 echo "dlesieur42" > /etc/hostname
@@ -557,4 +539,78 @@ cat > /etc/motd << 'MOTDEOF'
 MOTDEOF
 echo "[OK] MOTD set"
 
-echo "=== Born2beRoot setup complete ($(date)) ==="
+echo "=== Born2beRoot MANDATORY configuration complete ($(date)) ==="
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OPTIONAL: Third-Party Tools (DevOps, Linters)
+# These are nice-to-have but NOT required for Born2beRoot.
+# They run AFTER all mandatory config so a hang/failure here does NOT
+# break the system. Each command has a timeout to prevent blocking.
+# If any fail here, first-boot-setup.sh will retry with full networking.
+# ═══════════════════════════════════════════════════════════════════════════
+
+echo "--- Installing optional third-party tools (best-effort, 60s timeout each) ---"
+
+# Helper: run a command with a timeout (default 60s)
+timed() { timeout 60 "$@" 2>/dev/null; }
+
+# MongoDB repo (apt install with timeout)
+echo "deb [trusted=yes] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" \
+	> /etc/apt/sources.list.d/mongodb-org-7.0.list 2>/dev/null || true
+
+# Kubernetes repo
+echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" \
+	> /etc/apt/sources.list.d/kubernetes.list 2>/dev/null || true
+
+timed apt-get update -qq || true
+timed $APT mongodb-org kubectl pipx || true
+systemctl enable mongod 2>/dev/null || true
+echo "[OK] Third-party repos (best-effort)"
+
+# NPM global packages
+timed npm install -g eslint prettier snyk || true
+echo "[OK] NPM globals (best-effort)"
+
+# Python packages via pipx
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin timed pipx install sqlfluff || true
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin timed pipx install ruff || true
+PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin timed pipx install checkov || true
+echo "[OK] Python tools (best-effort)"
+
+# Go linter + Helm (curl | sh with timeout)
+timeout 60 bash -c 'curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin' || true
+timeout 60 bash -c 'curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash' || true
+echo "[OK] Go/Helm tools (best-effort)"
+
+### ─── GRUB SAFETY NET ────────────────────────────────────────────────────────
+# After all package installs (which may have upgraded kernel/initramfs/grub),
+# ensure GRUB is properly installed and grub.cfg is regenerated.
+# This prevents the dreaded "grub>" rescue shell on first boot.
+echo "--- GRUB safety net: ensuring bootloader is properly configured ---"
+
+# Fix any broken packages first (a broken dpkg = broken grub-install)
+dpkg --configure -a 2>/dev/null || true
+apt-get install -y -f 2>/dev/null || true
+
+# Detect the boot disk
+BOOT_DISK=$(mount | grep ' /boot ' | awk '{print $1}' | sed 's/[0-9]*$//' 2>/dev/null)
+if [ -z "$BOOT_DISK" ]; then
+	BOOT_DISK="/dev/sda"
+fi
+echo "[INFO] Reinstalling GRUB to $BOOT_DISK"
+
+# Reinstall GRUB to MBR
+grub-install "$BOOT_DISK" 2>&1 || echo "[WARN] grub-install failed (may be OK in chroot)"
+
+# Regenerate grub.cfg — critical to pick up any kernel changes
+update-grub 2>&1 || echo "[WARN] update-grub failed (may be OK in chroot)"
+
+# Verify grub.cfg exists and has menu entries
+if [ -f /boot/grub/grub.cfg ]; then
+	MENU_COUNT=$(grep -c 'menuentry ' /boot/grub/grub.cfg 2>/dev/null || echo 0)
+	echo "[OK] grub.cfg exists with $MENU_COUNT menu entries"
+else
+	echo "[WARN] /boot/grub/grub.cfg NOT found — GRUB may fail on boot!"
+fi
+
+echo "=== Born2beRoot setup FULLY complete ($(date)) ==="

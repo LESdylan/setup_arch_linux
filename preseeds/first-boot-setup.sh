@@ -446,7 +446,45 @@ systemctl restart ssh 2> /dev/null || true
 sysctl --system > /dev/null 2>&1 || true
 echo "[OK] NAT keepalive + sshd-watchdog + SSH stability ensured"
 
-### ─── 4. Self-destruct ─────────────────────────────────────────────────────
+### ─── 4. Third-party tools retry ────────────────────────────────────────────
+# b2b-setup.sh attempts these in chroot with 60s timeouts.
+# Here we retry any that failed, now with full network + systemd.
+echo "--- Ensuring third-party dev tools are installed ---"
+
+# NPM globals (skip if already installed)
+if ! command -v eslint > /dev/null 2>&1; then
+	npm install -g eslint prettier snyk 2>/dev/null || true
+	echo "[OK] NPM globals installed"
+else
+	echo "[SKIP] NPM globals already present"
+fi
+
+# Python tools via pipx
+if ! command -v ruff > /dev/null 2>&1; then
+	apt-get install -y -qq pipx 2>/dev/null || true
+	PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install ruff 2>/dev/null || true
+	PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install sqlfluff 2>/dev/null || true
+	PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install checkov 2>/dev/null || true
+	echo "[OK] Python tools installed"
+else
+	echo "[SKIP] Python tools already present"
+fi
+
+# Go linter
+if ! command -v golangci-lint > /dev/null 2>&1; then
+	curl -sSfL --max-time 60 https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b /usr/local/bin 2>/dev/null || true
+	echo "[OK] golangci-lint installed"
+fi
+
+# Helm
+if ! command -v helm > /dev/null 2>&1; then
+	curl -fsSL --max-time 60 https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash 2>/dev/null || true
+	echo "[OK] Helm installed"
+fi
+
+echo "[OK] Third-party tools check complete"
+
+### ─── 5. Self-destruct ─────────────────────────────────────────────────────
 sed -i '/first-boot-setup/d' /etc/crontab
 rm -f /root/first-boot-setup.sh
 echo "=== First-boot setup complete ($(date)) ==="

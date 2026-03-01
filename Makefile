@@ -214,8 +214,25 @@ pop_iso:
 # =========@@ Destroy helpers @@===============================================
 rm_disk_image:
 	@if VBoxManage showvminfo "$(VM_NAME)" >/dev/null 2>&1; then \
-		VBoxManage unregistervm "$(VM_NAME)" --delete 2>/dev/null; \
-		printf "$(C_GREEN)✓$(C_RESET) VM \"$(VM_NAME)\" removed\n"; \
+		state=$$(VBoxManage showvminfo "$(VM_NAME)" --machinereadable 2>/dev/null \
+		        | grep '^VMState=' | cut -d'"' -f2); \
+		if [ "$$state" = "running" ] || [ "$$state" = "paused" ] || [ "$$state" = "stuck" ]; then \
+			printf "$(C_YELLOW)▶$(C_RESET) Powering off VM \"$(VM_NAME)\"...\n"; \
+			VBoxManage controlvm "$(VM_NAME)" poweroff 2>/dev/null || true; \
+			sleep 3; \
+			i=0; while [ $$i -lt 10 ]; do \
+				if VBoxManage modifyvm "$(VM_NAME)" --description "" 2>/dev/null; then break; fi; \
+				sleep 1; i=$$((i+1)); \
+			done; \
+		fi; \
+		if VBoxManage unregistervm "$(VM_NAME)" --delete 2>/dev/null; then \
+			printf "$(C_GREEN)✓$(C_RESET) VM \"$(VM_NAME)\" removed\n"; \
+		else \
+			printf "$(C_RED)✗$(C_RESET) Failed to unregister VM — forcing cleanup\n"; \
+			VBoxManage unregistervm "$(VM_NAME)" 2>/dev/null || true; \
+			rm -rf "$(DISK_DIR)/$(VM_NAME)" 2>/dev/null || true; \
+			printf "$(C_GREEN)✓$(C_RESET) VM \"$(VM_NAME)\" force-removed\n"; \
+		fi; \
 	else \
 		echo "VM '$(VM_NAME)' does not exist."; \
 	fi
