@@ -13,14 +13,14 @@ fi
 
 # Step 1: Disable AppArmor profiles
 echo "Step 1: Removing AppArmor profiles temporarily..."
-aa-disable usr.sbin.php-fpm8.2 2>/dev/null || true
-aa-disable usr.sbin.lighttpd 2>/dev/null || true
-aa-disable usr.sbin.mysqld 2>/dev/null || true
+aa-disable usr.sbin.php-fpm8.2 2> /dev/null || true
+aa-disable usr.sbin.lighttpd 2> /dev/null || true
+aa-disable usr.sbin.mysqld 2> /dev/null || true
 
 # Alternative method to remove profiles
-apparmor_parser -R /etc/apparmor.d/usr.sbin.php-fpm8.2 2>/dev/null || true
-apparmor_parser -R /etc/apparmor.d/usr.sbin.lighttpd 2>/dev/null || true
-apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld 2>/dev/null || true
+apparmor_parser -R /etc/apparmor.d/usr.sbin.php-fpm8.2 2> /dev/null || true
+apparmor_parser -R /etc/apparmor.d/usr.sbin.lighttpd 2> /dev/null || true
+apparmor_parser -R /etc/apparmor.d/usr.sbin.mysqld 2> /dev/null || true
 
 # Step 2: Check for configuration errors
 echo "Step 2: Checking for configuration errors..."
@@ -72,8 +72,8 @@ chmod -R 755 /var/www/html
 
 # Step 4: Clean up any stale socket files
 echo "Step 4: Cleaning up stale socket files..."
-rm -f /run/php/php8.2-fpm.sock 2>/dev/null || true
-rm -f /run/lighttpd.pid 2>/dev/null || true
+rm -f /run/php/php8.2-fpm.sock 2> /dev/null || true
+rm -f /run/lighttpd.pid 2> /dev/null || true
 
 # Step 5: Restart services one by one
 echo "Step 5: Restarting services one by one..."
@@ -112,7 +112,7 @@ fi
 
 # Step 6: Create a basic PHP test file
 echo "Step 6: Creating basic PHP test file..."
-cat >/var/www/html/phpinfo.php <<'EOF'
+cat > /var/www/html/phpinfo.php << 'EOF'
 <?php
 phpinfo();
 EOF
@@ -128,7 +128,7 @@ echo "MariaDB status: $(systemctl is-active mariadb)"
 # Step 8: Create simpler AppArmor profiles
 echo "Step 8: Creating simpler AppArmor profiles in complain mode..."
 
-cat >/etc/apparmor.d/usr.sbin.php-fpm8.2 <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.php-fpm8.2 << 'EOF'
 #include <tunables/global>
 
 profile php-fpm8.2 /usr/sbin/php-fpm8.2 flags=(attach_disconnected) {
@@ -154,7 +154,7 @@ profile php-fpm8.2 /usr/sbin/php-fpm8.2 flags=(attach_disconnected) {
 }
 EOF
 
-cat >/etc/apparmor.d/usr.sbin.lighttpd <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.lighttpd << 'EOF'
 #include <tunables/global>
 
 profile lighttpd /usr/sbin/lighttpd flags=(attach_disconnected) {

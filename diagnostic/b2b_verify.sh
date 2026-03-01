@@ -60,13 +60,13 @@ grep "Port " /etc/ssh/sshd_config | grep -v "#" | sed 's/^/  /'
 grep "PermitRootLogin " /etc/ssh/sshd_config | grep -v "#" | sed 's/^/  /'
 
 # Verify SSH port
-if ! grep "Port 4242" /etc/ssh/sshd_config >/dev/null; then
+if ! grep "Port 4242" /etc/ssh/sshd_config > /dev/null; then
 	echo -e "${RED}✗ SSH not configured for port 4242${NC}"
 	echo -e "  Fix: Edit /etc/ssh/sshd_config and set 'Port 4242'"
 fi
 
 # Verify root login
-if ! grep "PermitRootLogin no" /etc/ssh/sshd_config >/dev/null; then
+if ! grep "PermitRootLogin no" /etc/ssh/sshd_config > /dev/null; then
 	echo -e "${RED}✗ SSH root login not properly disabled${NC}"
 	echo -e "  Fix: Edit /etc/ssh/sshd_config and set 'PermitRootLogin no'"
 fi
@@ -76,7 +76,7 @@ echo -e "${BOLD}Password Aging:${NC}"
 grep "^PASS_MAX_DAYS\|^PASS_MIN_DAYS\|^PASS_WARN_AGE" /etc/login.defs | sed 's/^/  /'
 
 echo -e "${BOLD}Password Complexity:${NC}"
-if grep "pam_pwquality.so" /etc/pam.d/common-password >/dev/null; then
+if grep "pam_pwquality.so" /etc/pam.d/common-password > /dev/null; then
 	echo -e "${GREEN}✓ Password quality requirements configured${NC}"
 	grep "pam_pwquality.so" /etc/pam.d/common-password | sed 's/^/  /'
 else
@@ -86,33 +86,33 @@ fi
 
 print_header "CHECKING SUDO CONFIGURATION"
 echo -e "${BOLD}Sudo Log File:${NC}"
-if grep "logfile=" /etc/sudoers.d/* 2>/dev/null | grep -q "/var/log/sudo"; then
+if grep "logfile=" /etc/sudoers.d/* 2> /dev/null | grep -q "/var/log/sudo"; then
 	echo -e "${GREEN}✓ Sudo log file configured${NC}"
-	grep "logfile=" /etc/sudoers.d/* 2>/dev/null | sed 's/^/  /'
+	grep "logfile=" /etc/sudoers.d/* 2> /dev/null | sed 's/^/  /'
 else
 	echo -e "${RED}✗ Sudo log file not configured${NC}"
 	echo -e "  Fix: Add 'Defaults logfile=\"/var/log/sudo/sudo.log\"' to /etc/sudoers.d/sudo_config"
 fi
 
 echo -e "${BOLD}Sudo Security Settings:${NC}"
-if grep "passwd_tries=" /etc/sudoers.d/* 2>/dev/null; then
+if grep "passwd_tries=" /etc/sudoers.d/* 2> /dev/null; then
 	echo -e "${GREEN}✓ Sudo password attempts limit is configured${NC}"
-	grep "passwd_tries=" /etc/sudoers.d/* 2>/dev/null | sed 's/^/  /'
+	grep "passwd_tries=" /etc/sudoers.d/* 2> /dev/null | sed 's/^/  /'
 else
 	echo -e "${RED}✗ Sudo password attempts limit is not configured${NC}"
 	echo -e "  Fix: Add 'Defaults passwd_tries=3' to /etc/sudoers.d/sudo_config"
 fi
 
-if grep "requiretty" /etc/sudoers.d/* 2>/dev/null; then
+if grep "requiretty" /etc/sudoers.d/* 2> /dev/null; then
 	echo -e "${GREEN}✓ Sudo requiretty is configured${NC}"
-	grep "requiretty" /etc/sudoers.d/* 2>/dev/null | sed 's/^/  /'
+	grep "requiretty" /etc/sudoers.d/* 2> /dev/null | sed 's/^/  /'
 else
 	echo -e "${RED}✗ Sudo requiretty is not configured${NC}"
 	echo -e "  Fix: Add 'Defaults requiretty' to /etc/sudoers.d/sudo_config"
 fi
 
 print_header "CHECKING USER GROUPS"
-if getent group user42 >/dev/null; then
+if getent group user42 > /dev/null; then
 	echo -e "${GREEN}✓ user42 group exists${NC}"
 	echo -e "${BOLD}Members:${NC} $(getent group user42 | cut -d: -f4)"
 else
@@ -135,9 +135,9 @@ else
 fi
 
 # Check crontab
-if crontab -l -u root 2>/dev/null | grep -q "monitoring.sh"; then
+if crontab -l -u root 2> /dev/null | grep -q "monitoring.sh"; then
 	echo -e "${GREEN}✓ Monitoring script is scheduled in crontab${NC}"
-	crontab -l -u root 2>/dev/null | grep "monitoring.sh" | sed 's/^/  /'
+	crontab -l -u root 2> /dev/null | grep "monitoring.sh" | sed 's/^/  /'
 else
 	echo -e "${RED}✗ Monitoring script is not scheduled in crontab${NC}"
 	echo -e "  Fix: Add '*/10 * * * * /root/monitoring.sh | wall' to root's crontab"

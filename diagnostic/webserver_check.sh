@@ -28,7 +28,7 @@ fi
 
 # Method 3: Check service status directly
 echo -e "\n${YELLOW}Method 3: Service status${NC}"
-if sudo systemctl status lighttpd >/dev/null 2>&1; then
+if sudo systemctl status lighttpd > /dev/null 2>&1; then
 	status=$(sudo systemctl is-active lighttpd)
 	echo -e "${GREEN}✓ Lighttpd service status: $status${NC}"
 	echo -e "  $(sudo systemctl status lighttpd | grep "Active:" | sed 's/^ *//')"
@@ -54,8 +54,8 @@ fi
 
 echo -e "\n=== TEST WITH CURL ==="
 echo -e "Attempting to connect to localhost:"
-if command -v curl >/dev/null; then
-	curl -I http://localhost -m 2 2>/dev/null || echo -e "${RED}Connection failed${NC}"
+if command -v curl > /dev/null; then
+	curl -I http://localhost -m 2 2> /dev/null || echo -e "${RED}Connection failed${NC}"
 else
 	echo -e "${YELLOW}curl not installed${NC}"
 fi

@@ -36,7 +36,7 @@ show_help() {
 
 # Function to check if a command exists
 command_exists() {
-	command -v "$1" >/dev/null 2>&1
+	command -v "$1" > /dev/null 2>&1
 }
 
 # Function to display spinner during operations
@@ -44,7 +44,7 @@ spinner() {
 	local pid=$1
 	local delay=0.1
 	local spinstr='|/-\'
-	while ps -p "$pid" >/dev/null; do
+	while ps -p "$pid" > /dev/null; do
 		local temp=${spinstr#?}
 		printf " [%c]  " "$spinstr"
 		local spinstr=$temp${spinstr%"$temp"}
@@ -62,29 +62,29 @@ SEARCH_TERMS=()
 
 while [[ $# -gt 0 ]]; do
 	case $1 in
-	-h | --help)
-		show_help
-		;;
-	-a | --all)
-		ALL_MATCHES=1
-		shift
-		;;
-	-u | --update)
-		FORCE_UPDATE=1
-		shift
-		;;
-	-q | --quiet)
-		QUIET=1
-		shift
-		;;
-	-*)
-		print_color "$RED" "Unknown option: $1"
-		show_help
-		;;
-	*)
-		SEARCH_TERMS+=("$1")
-		shift
-		;;
+		-h | --help)
+			show_help
+			;;
+		-a | --all)
+			ALL_MATCHES=1
+			shift
+			;;
+		-u | --update)
+			FORCE_UPDATE=1
+			shift
+			;;
+		-q | --quiet)
+			QUIET=1
+			shift
+			;;
+		-*)
+			print_color "$RED" "Unknown option: $1"
+			show_help
+			;;
+		*)
+			SEARCH_TERMS+=("$1")
+			shift
+			;;
 	esac
 done
 
@@ -100,7 +100,7 @@ if ! command_exists apt-file; then
 	if [ "$QUIET" -eq 0 ]; then
 		sudo apt update && sudo apt install -y apt-file
 	else
-		sudo apt update >/dev/null 2>&1 && sudo apt install -y apt-file >/dev/null 2>&1
+		sudo apt update > /dev/null 2>&1 && sudo apt install -y apt-file > /dev/null 2>&1
 	fi
 
 	if [ $? -ne 0 ]; then
@@ -118,7 +118,7 @@ if [ "$FORCE_UPDATE" -eq 1 ] || [ ! -f /var/cache/apt/apt-file/index.apt-file ];
 		sudo apt-file update &
 		spinner $!
 	else
-		sudo apt-file update >/dev/null 2>&1
+		sudo apt-file update > /dev/null 2>&1
 	fi
 
 	if [ $? -ne 0 ]; then
@@ -136,7 +136,7 @@ for term in "${SEARCH_TERMS[@]}"; do
 	# Check if the command already exists
 	if command_exists "$term"; then
 		path_to_command=$(which "$term")
-		package=$(dpkg -S "$path_to_command" 2>/dev/null | cut -d: -f1)
+		package=$(dpkg -S "$path_to_command" 2> /dev/null | cut -d: -f1)
 		if [ -n "$package" ]; then
 			print_color "$GREEN" "✓ Command '$term' is already installed from package: $package"
 			print_color "$BLUE" "  Location: $path_to_command"
@@ -147,11 +147,11 @@ for term in "${SEARCH_TERMS[@]}"; do
 	# Primary search with apt-file
 	print_color "$MAGENTA" "Searching with apt-file..."
 	# Look for exact matches in bin directories first
-	apt_file_results=$(apt-file search -l "/bin/$term$\|/sbin/$term$\|/usr/bin/$term$\|/usr/sbin/$term$" 2>/dev/null)
+	apt_file_results=$(apt-file search -l "/bin/$term$\|/sbin/$term$\|/usr/bin/$term$\|/usr/sbin/$term$" 2> /dev/null)
 
 	if [ -z "$apt_file_results" ]; then
 		# If no exact matches, search for the command name anywhere
-		apt_file_results=$(apt-file search -l "$term" 2>/dev/null | grep -E "/bin/|/sbin/")
+		apt_file_results=$(apt-file search -l "$term" 2> /dev/null | grep -E "/bin/|/sbin/")
 	fi
 
 	if [ -n "$apt_file_results" ]; then

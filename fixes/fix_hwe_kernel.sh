@@ -50,13 +50,13 @@ printf "${BOLD}  VirtualBox / HWE Kernel Compatibility Fix${NC}\n"
 hr
 
 RUNNING_KERNEL="$(uname -r)"
-VBOX_VER="$(VBoxManage --version 2>/dev/null | cut -d'r' -f1 || echo unknown)"
+VBOX_VER="$(VBoxManage --version 2> /dev/null | cut -d'r' -f1 || echo unknown)"
 info "Running kernel : ${RUNNING_KERNEL}"
 info "VirtualBox ver : ${VBOX_VER}"
 
 # ── Helper: major version number of installed VirtualBox ─────────────────────
 vbox_major() {
-	VBoxManage --version 2>/dev/null | grep -oP '^\d+\.\d+' | tr -d '.' || echo 0
+	VBoxManage --version 2> /dev/null | grep -oP '^\d+\.\d+' | tr -d '.' || echo 0
 }
 
 # ── STEP 1: Try upgrading VirtualBox to 7.1.x (Oracle repo) ──────────────────
@@ -65,27 +65,27 @@ try_upgrade_virtualbox() {
 	hr
 	info "Step 1 — Trying to upgrade VirtualBox to 7.1.x from Oracle repo..."
 
-	if ! command -v curl &>/dev/null; then
+	if ! command -v curl &> /dev/null; then
 		apt-get install -y curl
 	fi
 
 	# Add Oracle APT key + repo if not already present
 	if [[ ! -f /etc/apt/sources.list.d/virtualbox.list ]]; then
 		info "Adding Oracle VirtualBox APT repository..."
-		curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc |
-			gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg
+		curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc \
+			| gpg --dearmor -o /usr/share/keyrings/oracle-virtualbox-2016.gpg
 		echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] \
 https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" \
-			>/etc/apt/sources.list.d/virtualbox.list
+			> /etc/apt/sources.list.d/virtualbox.list
 	fi
 	apt-get update -qq
 
-	if apt-cache show virtualbox-7.1 &>/dev/null; then
+	if apt-cache show virtualbox-7.1 &> /dev/null; then
 		info "Found virtualbox-7.1 — installing..."
-		apt-get remove -y virtualbox virtualbox-7.0 2>/dev/null || true
+		apt-get remove -y virtualbox virtualbox-7.0 2> /dev/null || true
 		apt-get install -y virtualbox-7.1
 		dpkg --configure -a
-		modprobe vboxdrv 2>/dev/null || true
+		modprobe vboxdrv 2> /dev/null || true
 		if test -c /dev/vboxdrv; then
 			success "VirtualBox 7.1 installed — /dev/vboxdrv ready. No kernel change needed."
 		else
@@ -111,10 +111,10 @@ install_safe_kernel_and_set_grub() {
 
 	# Re-scan for safe kernels
 	mapfile -t SAFE_IMGS < <(
-		dpkg -l 2>/dev/null |
-			awk '/^ii.*linux-image-[0-9]/{print $2}' |
-			grep -vE 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' ||
-			true
+		dpkg -l 2> /dev/null \
+			| awk '/^ii.*linux-image-[0-9]/{print $2}' \
+			| grep -vE 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
+			|| true
 	)
 
 	if [[ "${#SAFE_IMGS[@]}" -eq 0 ]]; then
@@ -126,7 +126,7 @@ install_safe_kernel_and_set_grub() {
 	success "Safe kernel available: ${SAFE_VER}"
 
 	# Run update-grub so the new kernel appears in grub.cfg
-	update-grub 2>/dev/null || true
+	update-grub 2> /dev/null || true
 
 	GRUB_CFG="/boot/grub/grub.cfg"
 	[[ -f "$GRUB_CFG" ]] || {
@@ -134,19 +134,19 @@ install_safe_kernel_and_set_grub() {
 		return
 	}
 
-	GRUB_ENTRY="$(grep -oP "(?<=menuentry ')[^']*${SAFE_VER}[^']*(?=')" "$GRUB_CFG" 2>/dev/null |
-		grep -iv recovery | head -1 || true)"
+	GRUB_ENTRY="$(grep -oP "(?<=menuentry ')[^']*${SAFE_VER}[^']*(?=')" "$GRUB_CFG" 2> /dev/null \
+		| grep -iv recovery | head -1 || true)"
 	[[ -z "$GRUB_ENTRY" ]] && GRUB_ENTRY="$(grep -oP "(?<=menuentry \")[^\"]*${SAFE_VER}[^\"]*(?=\")" \
-		"$GRUB_CFG" 2>/dev/null | grep -iv recovery | head -1 || true)"
+		"$GRUB_CFG" 2> /dev/null | grep -iv recovery | head -1 || true)"
 
 	if [[ -n "$GRUB_ENTRY" ]]; then
-		if ! grep -q '^GRUB_DEFAULT=saved' /etc/default/grub 2>/dev/null; then
+		if ! grep -q '^GRUB_DEFAULT=saved' /etc/default/grub 2> /dev/null; then
 			cp /etc/default/grub /etc/default/grub.bak
 			sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub
 			info "Set GRUB_DEFAULT=saved (backup: /etc/default/grub.bak)"
 		fi
 		grub-set-default "$GRUB_ENTRY"
-		update-grub 2>/dev/null || true
+		update-grub 2> /dev/null || true
 		success "GRUB next boot: '${GRUB_ENTRY}'"
 	else
 		warn "Could not find GRUB entry for ${SAFE_VER} automatically."
@@ -176,10 +176,10 @@ install_safe_kernel_and_set_grub() {
 # ── STEP 3: Remove stale HWE kernels that are NOT running ────────────────────
 remove_non_running_hwe_kernels() {
 	mapfile -t BAD_PKGS < <(
-		dpkg -l 2>/dev/null |
-			awk '/^ii.*linux-image-[0-9]/{print $2}' |
-			grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' ||
-			true
+		dpkg -l 2> /dev/null \
+			| awk '/^ii.*linux-image-[0-9]/{print $2}' \
+			| grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
+			|| true
 	)
 	[[ "${#BAD_PKGS[@]}" -eq 0 ]] && return 0
 
@@ -191,7 +191,7 @@ remove_non_running_hwe_kernels() {
 		else
 			REMOVABLE+=("$pkg")
 			for extra in "linux-headers-${ver}" "linux-modules-${ver}" "linux-modules-extra-${ver}"; do
-				dpkg -l "$extra" &>/dev/null && REMOVABLE+=("$extra") || true
+				dpkg -l "$extra" &> /dev/null && REMOVABLE+=("$extra") || true
 			done
 		fi
 	done
@@ -204,8 +204,8 @@ remove_non_running_hwe_kernels() {
 	dpkg --configure -a || warn "dpkg --configure -a reported issues"
 
 	info "Reloading VirtualBox kernel driver..."
-	modprobe vboxdrv 2>/dev/null && success "vboxdrv loaded" ||
-		warn "modprobe vboxdrv failed — try: sudo apt install --reinstall virtualbox-dkms"
+	modprobe vboxdrv 2> /dev/null && success "vboxdrv loaded" \
+		|| warn "modprobe vboxdrv failed — try: sudo apt install --reinstall virtualbox-dkms"
 
 	success "Stale HWE kernels removed."
 }
@@ -213,10 +213,10 @@ remove_non_running_hwe_kernels() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 mapfile -t ALL_BAD < <(
-	dpkg -l 2>/dev/null |
-		awk '/^ii.*linux-image-[0-9]/{print $2}' |
-		grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' ||
-		true
+	dpkg -l 2> /dev/null \
+		| awk '/^ii.*linux-image-[0-9]/{print $2}' \
+		| grep -E 'linux-image-(6\.(1[3-9]|[2-9][0-9])\.|[7-9]\.)' \
+		|| true
 )
 
 if [[ "${#ALL_BAD[@]}" -eq 0 ]]; then
@@ -266,7 +266,7 @@ else
 	remove_non_running_hwe_kernels
 	hr
 	success "Done."
-	test -c /dev/vboxdrv &&
-		success "/dev/vboxdrv is ready — 'make start_vm' should work." ||
-		warn "/dev/vboxdrv missing — try: sudo modprobe vboxdrv"
+	test -c /dev/vboxdrv \
+		&& success "/dev/vboxdrv is ready — 'make start_vm' should work." \
+		|| warn "/dev/vboxdrv missing — try: sudo modprobe vboxdrv"
 fi

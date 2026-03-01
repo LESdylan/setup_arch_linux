@@ -7,13 +7,13 @@ cpu_load_module() {
 	# Function to format a number with a specific precision
 	format_number() {
 		# Use 2 decimal places for more precision
-		printf "%.2f" "$1" 2>/dev/null || echo "$1"
+		printf "%.2f" "$1" 2> /dev/null || echo "$1"
 	}
 
 	# Method 1: Using top
 	get_cpu_top() {
-		if command -v top &>/dev/null; then
-			local top_output=$(top -bn2 2>/dev/null | grep "Cpu(s)" | tail -1)
+		if command -v top &> /dev/null; then
+			local top_output=$(top -bn2 2> /dev/null | grep "Cpu(s)" | tail -1)
 			if [ -n "$top_output" ]; then
 				# Extract both user and system CPU time
 				local cpu_usage=$(echo "$top_output" | awk '{print $2 + $4 + $6}')
@@ -38,9 +38,9 @@ cpu_load_module() {
 	get_cpu_proc() {
 		if [ -f /proc/stat ]; then
 			# Take two samples with a slightly longer interval for better accuracy
-			local stat1=$(cat /proc/stat 2>/dev/null | grep '^cpu ')
+			local stat1=$(cat /proc/stat 2> /dev/null | grep '^cpu ')
 			sleep 0.5
-			local stat2=$(cat /proc/stat 2>/dev/null | grep '^cpu ')
+			local stat2=$(cat /proc/stat 2> /dev/null | grep '^cpu ')
 
 			if [[ -n "$stat1" && -n "$stat2" ]]; then
 				# Parse the stats
@@ -88,9 +88,9 @@ cpu_load_module() {
 
 	# Method 3: Using mpstat if available
 	get_cpu_mpstat() {
-		if command -v mpstat &>/dev/null; then
+		if command -v mpstat &> /dev/null; then
 			# Use a longer sampling time for better accuracy
-			local mpstat_output=$(mpstat 1 2 2>/dev/null)
+			local mpstat_output=$(mpstat 1 2 2> /dev/null)
 			if [ -n "$mpstat_output" ]; then
 				local cpu_usage=$(echo "$mpstat_output" | grep "Average.*all" | awk '{print 100 - $NF}')
 				if [ -n "$cpu_usage" ]; then
@@ -112,9 +112,9 @@ cpu_load_module() {
 
 	# Method 4: Using vmstat with multiple samples
 	get_cpu_vmstat() {
-		if command -v vmstat &>/dev/null; then
+		if command -v vmstat &> /dev/null; then
 			# Take 3 samples over 2 seconds for better accuracy
-			local vmstat_output=$(vmstat 1 3 2>/dev/null | tail -1)
+			local vmstat_output=$(vmstat 1 3 2> /dev/null | tail -1)
 			if [ -n "$vmstat_output" ]; then
 				local cpu_idle=$(echo "$vmstat_output" | awk '{print $15}')
 				if [ -n "$cpu_idle" ]; then
@@ -137,8 +137,8 @@ cpu_load_module() {
 
 	# Method 5: Using uptime load average
 	get_cpu_uptime() {
-		if command -v uptime &>/dev/null; then
-			local uptime_output=$(uptime 2>/dev/null)
+		if command -v uptime &> /dev/null; then
+			local uptime_output=$(uptime 2> /dev/null)
 			if [ -n "$uptime_output" ]; then
 				# Get 1-minute load average and convert to percentage
 				local load=$(echo "$uptime_output" | awk -F'[a-z]:' '{print $2}' | awk '{print $1}' | tr -d ',')
@@ -147,8 +147,8 @@ cpu_load_module() {
 					local cores=1
 					if [ -n "${METRIC_VALUES[cpu_core]}" ] && [[ "${METRIC_VALUES[cpu_core]}" =~ ^[0-9]+$ ]]; then
 						cores=${METRIC_VALUES[cpu_core]}
-					elif command -v nproc &>/dev/null; then
-						cores=$(nproc 2>/dev/null || echo 1)
+					elif command -v nproc &> /dev/null; then
+						cores=$(nproc 2> /dev/null || echo 1)
 					fi
 
 					# Convert load to percentage (load/cores * 100)
@@ -199,7 +199,7 @@ cpu_load_module() {
 
 	# Load average as additional info (not verified)
 	if [ -f /proc/loadavg ]; then
-		load_avg=$(cat /proc/loadavg 2>/dev/null | awk '{print $1", "$2", "$3}')
+		load_avg=$(cat /proc/loadavg 2> /dev/null | awk '{print $1", "$2", "$3}')
 		METRIC_VALUES["load_avg"]="$load_avg"
 	else
 		METRIC_VALUES["load_avg"]="N/A"

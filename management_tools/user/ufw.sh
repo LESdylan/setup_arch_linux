@@ -93,13 +93,13 @@ set_default_policies() {
 		read -p "Select incoming policy [1-3]: " incoming_policy
 
 		case $incoming_policy in
-		1) ufw default allow incoming ;;
-		2) ufw default deny incoming ;;
-		3) ufw default reject incoming ;;
-		*)
-			echo -e "${RED}✗ Invalid option. Using deny as default${NC}"
-			ufw default deny incoming
-			;;
+			1) ufw default allow incoming ;;
+			2) ufw default deny incoming ;;
+			3) ufw default reject incoming ;;
+			*)
+				echo -e "${RED}✗ Invalid option. Using deny as default${NC}"
+				ufw default deny incoming
+				;;
 		esac
 
 		echo "1. Allow all outgoing traffic"
@@ -108,13 +108,13 @@ set_default_policies() {
 		read -p "Select outgoing policy [1-3]: " outgoing_policy
 
 		case $outgoing_policy in
-		1) ufw default allow outgoing ;;
-		2) ufw default deny outgoing ;;
-		3) ufw default reject outgoing ;;
-		*)
-			echo -e "${RED}✗ Invalid option. Using allow as default${NC}"
-			ufw default allow outgoing
-			;;
+			1) ufw default allow outgoing ;;
+			2) ufw default deny outgoing ;;
+			3) ufw default reject outgoing ;;
+			*)
+				echo -e "${RED}✗ Invalid option. Using allow as default${NC}"
+				ufw default allow outgoing
+				;;
 		esac
 
 		echo -e "${GREEN}✓ Custom default policies set${NC}"
@@ -136,108 +136,108 @@ add_rule() {
 	read -p "Select rule type [1-6]: " rule_type
 
 	case $rule_type in
-	1) # Allow a port
-		read -p "Enter port number to allow: " port
-		read -p "Protocol (tcp/udp/both): " protocol
+		1) # Allow a port
+			read -p "Enter port number to allow: " port
+			read -p "Protocol (tcp/udp/both): " protocol
 
-		if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-			echo -e "${RED}✗ Invalid port number. Must be between 1-65535${NC}"
+			if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+				echo -e "${RED}✗ Invalid port number. Must be between 1-65535${NC}"
+				return 1
+			fi
+
+			if [[ "$protocol" == "both" ]]; then
+				ufw allow $port
+				echo -e "${GREEN}✓ Port $port allowed (tcp & udp)${NC}"
+			elif [[ "$protocol" == "tcp" || "$protocol" == "udp" ]]; then
+				ufw allow $port/$protocol
+				echo -e "${GREEN}✓ Port $port/$protocol allowed${NC}"
+			else
+				echo -e "${RED}✗ Invalid protocol. Using tcp as default${NC}"
+				ufw allow $port/tcp
+				echo -e "${GREEN}✓ Port $port/tcp allowed${NC}"
+			fi
+			;;
+
+		2) # Deny a port
+			read -p "Enter port number to deny: " port
+			read -p "Protocol (tcp/udp/both): " protocol
+
+			if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+				echo -e "${RED}✗ Invalid port number. Must be between 1-65535${NC}"
+				return 1
+			fi
+
+			if [[ "$protocol" == "both" ]]; then
+				ufw deny $port
+				echo -e "${GREEN}✓ Port $port denied (tcp & udp)${NC}"
+			elif [[ "$protocol" == "tcp" || "$protocol" == "udp" ]]; then
+				ufw deny $port/$protocol
+				echo -e "${GREEN}✓ Port $port/$protocol denied${NC}"
+			else
+				echo -e "${RED}✗ Invalid protocol. Using tcp as default${NC}"
+				ufw deny $port/tcp
+				echo -e "${GREEN}✓ Port $port/tcp denied${NC}"
+			fi
+			;;
+
+		3) # Allow an IP address
+			read -p "Enter IP address to allow: " ip
+
+			# Simple IP validation (not perfect but catches obvious errors)
+			if ! [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+				echo -e "${RED}✗ Invalid IP address format${NC}"
+				return 1
+			fi
+
+			ufw allow from $ip
+			echo -e "${GREEN}✓ Traffic from $ip allowed${NC}"
+			;;
+
+		4) # Deny an IP address
+			read -p "Enter IP address to deny: " ip
+
+			# Simple IP validation
+			if ! [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+				echo -e "${RED}✗ Invalid IP address format${NC}"
+				return 1
+			fi
+
+			ufw deny from $ip
+			echo -e "${GREEN}✓ Traffic from $ip denied${NC}"
+			;;
+
+		5) # Allow a service by name
+			echo -e "${YELLOW}Common services:${NC}"
+			echo "ssh, http, https, ftp, smtp, pop3, imap, dns, ntp"
+			read -p "Enter service name to allow: " service
+
+			ufw allow $service
+			if [ $? -eq 0 ]; then
+				echo -e "${GREEN}✓ Service $service allowed${NC}"
+			else
+				echo -e "${RED}✗ Failed to add rule. Check if service name is valid${NC}"
+				return 1
+			fi
+			;;
+
+		6) # Advanced rule
+			echo -e "${YELLOW}Enter the full UFW command (without 'ufw' prefix):${NC}"
+			echo -e "${YELLOW}Example: allow 22/tcp comment 'SSH'${NC}"
+			read -p "Command: " command
+
+			ufw $command
+			if [ $? -eq 0 ]; then
+				echo -e "${GREEN}✓ Rule added successfully${NC}"
+			else
+				echo -e "${RED}✗ Failed to add rule. Check syntax${NC}"
+				return 1
+			fi
+			;;
+
+		*)
+			echo -e "${RED}✗ Invalid option${NC}"
 			return 1
-		fi
-
-		if [[ "$protocol" == "both" ]]; then
-			ufw allow $port
-			echo -e "${GREEN}✓ Port $port allowed (tcp & udp)${NC}"
-		elif [[ "$protocol" == "tcp" || "$protocol" == "udp" ]]; then
-			ufw allow $port/$protocol
-			echo -e "${GREEN}✓ Port $port/$protocol allowed${NC}"
-		else
-			echo -e "${RED}✗ Invalid protocol. Using tcp as default${NC}"
-			ufw allow $port/tcp
-			echo -e "${GREEN}✓ Port $port/tcp allowed${NC}"
-		fi
-		;;
-
-	2) # Deny a port
-		read -p "Enter port number to deny: " port
-		read -p "Protocol (tcp/udp/both): " protocol
-
-		if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
-			echo -e "${RED}✗ Invalid port number. Must be between 1-65535${NC}"
-			return 1
-		fi
-
-		if [[ "$protocol" == "both" ]]; then
-			ufw deny $port
-			echo -e "${GREEN}✓ Port $port denied (tcp & udp)${NC}"
-		elif [[ "$protocol" == "tcp" || "$protocol" == "udp" ]]; then
-			ufw deny $port/$protocol
-			echo -e "${GREEN}✓ Port $port/$protocol denied${NC}"
-		else
-			echo -e "${RED}✗ Invalid protocol. Using tcp as default${NC}"
-			ufw deny $port/tcp
-			echo -e "${GREEN}✓ Port $port/tcp denied${NC}"
-		fi
-		;;
-
-	3) # Allow an IP address
-		read -p "Enter IP address to allow: " ip
-
-		# Simple IP validation (not perfect but catches obvious errors)
-		if ! [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-			echo -e "${RED}✗ Invalid IP address format${NC}"
-			return 1
-		fi
-
-		ufw allow from $ip
-		echo -e "${GREEN}✓ Traffic from $ip allowed${NC}"
-		;;
-
-	4) # Deny an IP address
-		read -p "Enter IP address to deny: " ip
-
-		# Simple IP validation
-		if ! [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-			echo -e "${RED}✗ Invalid IP address format${NC}"
-			return 1
-		fi
-
-		ufw deny from $ip
-		echo -e "${GREEN}✓ Traffic from $ip denied${NC}"
-		;;
-
-	5) # Allow a service by name
-		echo -e "${YELLOW}Common services:${NC}"
-		echo "ssh, http, https, ftp, smtp, pop3, imap, dns, ntp"
-		read -p "Enter service name to allow: " service
-
-		ufw allow $service
-		if [ $? -eq 0 ]; then
-			echo -e "${GREEN}✓ Service $service allowed${NC}"
-		else
-			echo -e "${RED}✗ Failed to add rule. Check if service name is valid${NC}"
-			return 1
-		fi
-		;;
-
-	6) # Advanced rule
-		echo -e "${YELLOW}Enter the full UFW command (without 'ufw' prefix):${NC}"
-		echo -e "${YELLOW}Example: allow 22/tcp comment 'SSH'${NC}"
-		read -p "Command: " command
-
-		ufw $command
-		if [ $? -eq 0 ]; then
-			echo -e "${GREEN}✓ Rule added successfully${NC}"
-		else
-			echo -e "${RED}✗ Failed to add rule. Check syntax${NC}"
-			return 1
-		fi
-		;;
-
-	*)
-		echo -e "${RED}✗ Invalid option${NC}"
-		return 1
-		;;
+			;;
 	esac
 
 	# Add project-specific recommendations for Born2beRoot
@@ -318,7 +318,7 @@ toggle_ufw() {
 
 		if [[ "$enable" == "y" || "$enable" == "Y" ]]; then
 			# Check for SSH rule to avoid lockout
-			ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
+			ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2> /dev/null | awk '{print $2}')
 			if [ -z "$ssh_port" ]; then
 				ssh_port="22"
 			fi
@@ -367,15 +367,15 @@ configure_logging() {
 	read -p "Select logging level [1-5]: " log_level
 
 	case $log_level in
-	1) ufw logging off ;;
-	2) ufw logging low ;;
-	3) ufw logging medium ;;
-	4) ufw logging high ;;
-	5) ufw logging full ;;
-	*)
-		echo -e "${RED}✗ Invalid option. Using low as default${NC}"
-		ufw logging low
-		;;
+		1) ufw logging off ;;
+		2) ufw logging low ;;
+		3) ufw logging medium ;;
+		4) ufw logging high ;;
+		5) ufw logging full ;;
+		*)
+			echo -e "${RED}✗ Invalid option. Using low as default${NC}"
+			ufw logging low
+			;;
 	esac
 
 	echo -e "${GREEN}✓ Logging level updated${NC}"
@@ -406,7 +406,7 @@ show_status() {
 	echo -e "${CYAN}• Default policy should be to deny incoming connections${NC}"
 
 	# Check for SSH rule
-	ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
+	ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2> /dev/null | awk '{print $2}')
 	if [ -z "$ssh_port" ]; then
 		ssh_port="22"
 	fi
@@ -434,7 +434,7 @@ setup_born2beroot() {
 
 	if [[ "$apply_config" == "y" || "$apply_config" == "Y" ]]; then
 		# Get SSH port from sshd_config
-		ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2>/dev/null | awk '{print $2}')
+		ssh_port=$(grep "^Port " /etc/ssh/sshd_config 2> /dev/null | awk '{print $2}')
 		if [ -z "$ssh_port" ]; then
 			ssh_port="22"
 			echo -e "${YELLOW}! SSH port not found in config. Using default port 22${NC}"
@@ -499,7 +499,7 @@ while true; do
 	echo ""
 
 	# Show quick status
-	ufw_status=$(ufw status | grep "Status: " | cut -d ' ' -f 2 2>/dev/null)
+	ufw_status=$(ufw status | grep "Status: " | cut -d ' ' -f 2 2> /dev/null)
 	if [ "$ufw_status" == "active" ]; then
 		echo -e "UFW Status: ${GREEN}ACTIVE${NC}"
 	else
@@ -523,24 +523,24 @@ while true; do
 	read -p "Select an option [1-11]: " option
 
 	case $option in
-	1) install_ufw ;;
-	2) show_status ;;
-	3) set_default_policies ;;
-	4) add_rule ;;
-	5) delete_rule ;;
-	6) reset_rules ;;
-	7) toggle_ufw ;;
-	8) configure_logging ;;
-	9) show_distro_info ;;
-	10) setup_born2beroot ;;
-	11)
-		echo -e "${GREEN}Exiting UFW Configuration Utility${NC}"
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		read -p "Press Enter to continue..."
-		;;
+		1) install_ufw ;;
+		2) show_status ;;
+		3) set_default_policies ;;
+		4) add_rule ;;
+		5) delete_rule ;;
+		6) reset_rules ;;
+		7) toggle_ufw ;;
+		8) configure_logging ;;
+		9) show_distro_info ;;
+		10) setup_born2beroot ;;
+		11)
+			echo -e "${GREEN}Exiting UFW Configuration Utility${NC}"
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			read -p "Press Enter to continue..."
+			;;
 	esac
 
 	read -p "Press Enter to return to the main menu..."

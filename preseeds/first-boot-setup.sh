@@ -1,7 +1,7 @@
 #!/bin/bash
 # First-boot setup: Docker + WordPress (requires running systemd + network)
 # This script runs once via @reboot crontab, then self-deletes.
-exec >/var/log/first-boot.log 2>&1
+exec > /var/log/first-boot.log 2>&1
 set -x
 export DEBIAN_FRONTEND=noninteractive
 
@@ -9,7 +9,7 @@ echo "=== First-boot setup starting ($(date)) ==="
 
 # Wait for network to be fully up
 for i in $(seq 1 30); do
-	if ping -c1 -W2 deb.debian.org >/dev/null 2>&1; then
+	if ping -c1 -W2 deb.debian.org > /dev/null 2>&1; then
 		echo "Network is up after ${i}s"
 		break
 	fi
@@ -29,29 +29,29 @@ CODENAME=$(. /etc/os-release && echo "$VERSION_CODENAME")
 if [ -z "$CODENAME" ] || [ "$CODENAME" = "trixie" ]; then
 	# Docker may not have trixie packages yet — try trixie first, fall back to bookworm
 	echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/debian trixie stable" >/etc/apt/sources.list.d/docker.list
-	apt-get update -qq 2>/dev/null
-	if ! apt-cache show docker-ce >/dev/null 2>&1; then
+https://download.docker.com/linux/debian trixie stable" > /etc/apt/sources.list.d/docker.list
+	apt-get update -qq 2> /dev/null
+	if ! apt-cache show docker-ce > /dev/null 2>&1; then
 		echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/debian bookworm stable" >/etc/apt/sources.list.d/docker.list
+https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list
 		apt-get update -qq
 	fi
 else
 	echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/debian $CODENAME stable" >/etc/apt/sources.list.d/docker.list
+https://download.docker.com/linux/debian $CODENAME stable" > /etc/apt/sources.list.d/docker.list
 	apt-get update -qq
 fi
 
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || true
 
 # Add dlesieur to docker group
-usermod -aG docker dlesieur 2>/dev/null || true
+usermod -aG docker dlesieur 2> /dev/null || true
 
 # Kill any running VS Code server so it restarts with the docker group loaded.
 # Without this, the VS Code server inherits the old group list (no docker GID)
 # and every Docker command from the VS Code terminal fails with "permission denied".
 # The user's next VS Code reconnect will spawn a fresh server with correct groups.
-pkill -u dlesieur -f "vscode-server" 2>/dev/null || true
+pkill -u dlesieur -f "vscode-server" 2> /dev/null || true
 
 # Enable and start Docker
 systemctl enable docker
@@ -85,10 +85,10 @@ WP_VER=$(grep 'wp_version =' wordpress/wp-includes/version.php | cut -d"'" -f2)
 echo "[OK] WordPress ${WP_VER:-latest} downloaded via curl"
 
 # Fetch unique salts from WordPress API
-SALTS=$(curl -fsSL --retry 2 --max-time 15 https://api.wordpress.org/secret-key/1.1/salt/ 2>/dev/null || true)
+SALTS=$(curl -fsSL --retry 2 --max-time 15 https://api.wordpress.org/secret-key/1.1/salt/ 2> /dev/null || true)
 
 # WordPress config
-cat >/var/www/html/wordpress/wp-config.php <<WPEOF
+cat > /var/www/html/wordpress/wp-config.php << WPEOF
 <?php
 define('DB_NAME', 'wordpress');
 define('DB_USER', 'wpuser');
@@ -116,7 +116,7 @@ chown www-data:www-data /var/www/html/wordpress/wp-config.php
 chmod 640 /var/www/html/wordpress/wp-config.php
 
 # Detect PHP-FPM version
-PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.2")
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2> /dev/null || echo "8.2")
 
 # Belt-and-suspenders: ensure no conflicting lighttpd PHP handler is active
 # (b2b-setup.sh should have done this, but guard against older ISOs)
@@ -124,7 +124,7 @@ rm -f /etc/lighttpd/conf-enabled/15-fastcgi-php.conf
 rm -f /etc/lighttpd/conf-enabled/99-unconfigured.conf
 
 # Ensure PHP-FPM listens on the correct socket and is running
-systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
+systemctl restart "php${PHP_VER}-fpm" 2> /dev/null || true
 systemctl restart lighttpd
 sleep 2
 
@@ -134,7 +134,7 @@ sleep 2
 echo "--- Running headless WordPress install ---"
 
 WP_INSTALL_PHP="/tmp/wp-headless-install.php"
-cat >"$WP_INSTALL_PHP" <<'INSTALLEOF'
+cat > "$WP_INSTALL_PHP" << 'INSTALLEOF'
 <?php
 // Headless WordPress installation — creates tables + admin user
 define('ABSPATH', '/var/www/html/wordpress/');
@@ -205,11 +205,11 @@ if runuser -u www-data -- php "$WP_INSTALL_PHP" 2>&1; then
 else
 	echo "[WARN] WordPress headless install had issues — trying WP-CLI fallback"
 	# WP-CLI fallback
-	if ! command -v wp >/dev/null 2>&1; then
-		curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar 2>/dev/null || true
-		chmod +x /usr/local/bin/wp 2>/dev/null || true
+	if ! command -v wp > /dev/null 2>&1; then
+		curl -fsSL -o /usr/local/bin/wp https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar 2> /dev/null || true
+		chmod +x /usr/local/bin/wp 2> /dev/null || true
 	fi
-	if command -v wp >/dev/null 2>&1; then
+	if command -v wp > /dev/null 2>&1; then
 		runuser -u www-data -- wp core install \
 			--path=/var/www/html/wordpress \
 			--url="http://localhost/wordpress" \
@@ -233,7 +233,7 @@ PLUGIN_DIR="/var/www/html/wordpress/wp-content/plugins/tech-blog-toolkit"
 if [ ! -d "$PLUGIN_DIR" ]; then
 	mkdir -p "$PLUGIN_DIR/includes"
 
-	cat >"$PLUGIN_DIR/tech-blog-toolkit.php" <<'PLUGINEOF'
+	cat > "$PLUGIN_DIR/tech-blog-toolkit.php" << 'PLUGINEOF'
 <?php
 /**
  * Plugin Name: Tech Blog Toolkit
@@ -277,7 +277,7 @@ function tbt_admin_page() {
 }
 PLUGINEOF
 
-	cat >"$PLUGIN_DIR/includes/post-types.php" <<'PTEOF'
+	cat > "$PLUGIN_DIR/includes/post-types.php" << 'PTEOF'
 <?php
 if (!defined('WPINC')) { die; }
 add_action('init', function(){
@@ -295,7 +295,7 @@ add_action('init', function(){
 });
 PTEOF
 
-	cat >"$PLUGIN_DIR/includes/meta-boxes.php" <<'MBEOF'
+	cat > "$PLUGIN_DIR/includes/meta-boxes.php" << 'MBEOF'
 <?php
 if (!defined('WPINC')) { die; }
 add_action('add_meta_boxes', function(){
@@ -321,7 +321,7 @@ add_action('save_post_tutorial', function($id){
 });
 MBEOF
 
-	cat >"$PLUGIN_DIR/includes/syntax-highlighter.php" <<'SHEOF'
+	cat > "$PLUGIN_DIR/includes/syntax-highlighter.php" << 'SHEOF'
 <?php
 if (!defined('WPINC')) { die; }
 add_action('wp_enqueue_scripts', function(){
@@ -335,7 +335,7 @@ add_shortcode('code', function($atts,$content=null){
 });
 SHEOF
 
-	cat >"$PLUGIN_DIR/includes/admin-dashboard.php" <<'ADEOF'
+	cat > "$PLUGIN_DIR/includes/admin-dashboard.php" << 'ADEOF'
 <?php
 if (!defined('WPINC')) { die; }
 add_action('wp_dashboard_setup', function(){
@@ -357,25 +357,25 @@ ADEOF
 fi
 
 # Activate plugin + create sample tutorial post via WP-CLI
-if command -v wp >/dev/null 2>&1; then
+if command -v wp > /dev/null 2>&1; then
 	runuser -u www-data -- wp plugin activate tech-blog-toolkit \
-		--path=/var/www/html/wordpress 2>/dev/null || true
+		--path=/var/www/html/wordpress 2> /dev/null || true
 	# Create a sample tutorial if none exist
 	TCOUNT=$(runuser -u www-data -- wp post list --post_type=tutorial --format=count \
-		--path=/var/www/html/wordpress 2>/dev/null || echo "0")
+		--path=/var/www/html/wordpress 2> /dev/null || echo "0")
 	if [ "$TCOUNT" = "0" ]; then
 		runuser -u www-data -- wp post create \
 			--path=/var/www/html/wordpress \
 			--post_type=tutorial \
 			--post_title="Getting Started with Born2beRoot" \
 			--post_content='<h2>Introduction</h2><p>This tutorial covers the basics of setting up a Born2beRoot virtual machine with WordPress, lighttpd, and MariaDB.</p><pre><code class="language-bash">sudo apt install lighttpd mariadb-server php-fpm</code></pre><h2>Key Concepts</h2><p>Learn about system administration, security hardening, and web server configuration.</p>' \
-			--post_status=publish 2>/dev/null || true
+			--post_status=publish 2> /dev/null || true
 		echo "[OK] Sample tutorial post created"
 	fi
 else
 	# Activate via DB if WP-CLI unavailable
 	mysql -u wpuser -pwppass123 wordpress -e \
-		"UPDATE wp_options SET option_value='a:1:{i:0;s:39:\"tech-blog-toolkit/tech-blog-toolkit.php\";}' WHERE option_name='active_plugins';" 2>/dev/null || true
+		"UPDATE wp_options SET option_value='a:1:{i:0;s:39:\"tech-blog-toolkit/tech-blog-toolkit.php\";}' WHERE option_name='active_plugins';" 2> /dev/null || true
 	echo "[OK] Tech Blog Toolkit activated via DB"
 fi
 
@@ -386,13 +386,13 @@ if [ -f /etc/lighttpd/conf-enabled/15-fastcgi-php.conf ]; then
 	rm -f /etc/lighttpd/conf-enabled/15-fastcgi-php.conf
 	echo "[FIX] Removed conflicting 15-fastcgi-php.conf (php-cgi)"
 fi
-rm -f /etc/lighttpd/conf-enabled/99-unconfigured.conf 2>/dev/null || true
+rm -f /etc/lighttpd/conf-enabled/99-unconfigured.conf 2> /dev/null || true
 
 # Belt-and-suspenders: ensure 99-wordpress.conf has root redirect + safe rewrite rules
-PHP_SOCK_PATH=$(find /run/php -name 'php*-fpm.sock' 2>/dev/null | head -1)
+PHP_SOCK_PATH=$(find /run/php -name 'php*-fpm.sock' 2> /dev/null | head -1)
 PHP_SOCK_PATH="${PHP_SOCK_PATH:-/run/php/php8.4-fpm.sock}"
-if ! grep -q 'url.redirect' /etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null; then
-	cat >/etc/lighttpd/conf-available/99-wordpress.conf <<WPFIX
+if ! grep -q 'url.redirect' /etc/lighttpd/conf-enabled/99-wordpress.conf 2> /dev/null; then
+	cat > /etc/lighttpd/conf-available/99-wordpress.conf << WPFIX
 server.modules += ( "mod_rewrite" )
 fastcgi.server += ( ".php" =>
     (( "socket" => "${PHP_SOCK_PATH}",
@@ -411,39 +411,39 @@ index-file.names += ( "index.php" )
 server.max-request-size = 32768
 WPFIX
 	ln -sf /etc/lighttpd/conf-available/99-wordpress.conf \
-		/etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null || true
+		/etc/lighttpd/conf-enabled/99-wordpress.conf 2> /dev/null || true
 	echo "[FIX] Updated 99-wordpress.conf with root redirect + safe rewrite rules"
 fi
 
 # Restart PHP-FPM + lighttpd to pick up new config
-systemctl restart "php${PHP_VER}-fpm" 2>/dev/null || true
-systemctl restart lighttpd 2>/dev/null || true
+systemctl restart "php${PHP_VER}-fpm" 2> /dev/null || true
+systemctl restart lighttpd 2> /dev/null || true
 
 # Verify lighttpd is running; if not, run config test for diagnostics
-if ! systemctl is-active --quiet lighttpd 2>/dev/null; then
+if ! systemctl is-active --quiet lighttpd 2> /dev/null; then
 	echo "[WARN] lighttpd failed to start — running config test:"
 	lighttpd -tt -f /etc/lighttpd/lighttpd.conf 2>&1 || true
 	# Try one more time after a short delay
 	sleep 2
-	systemctl restart lighttpd 2>/dev/null || true
+	systemctl restart lighttpd 2> /dev/null || true
 fi
 echo "[OK] WordPress fully installed — dashboard ready at /wordpress/wp-admin/"
 
 ### ─── 3. UFW — open Docker port ─────────────────────────────────────────────
-ufw allow 2375/tcp comment 'Docker' 2>/dev/null || true
+ufw allow 2375/tcp comment 'Docker' 2> /dev/null || true
 
 ### ─── 3b. Ensure NAT keepalive + SSH stability services are running ─────────
 # b2b-setup.sh creates these in chroot but systemctl enable may not stick.
 # Belt-and-suspenders: re-enable and start them now with real systemd.
 systemctl daemon-reload
-systemctl enable nat-keepalive 2>/dev/null || true
-systemctl start nat-keepalive 2>/dev/null || true
-systemctl enable sshd-watchdog 2>/dev/null || true
-systemctl start sshd-watchdog 2>/dev/null || true
-systemctl enable ssh 2>/dev/null || true
-systemctl restart ssh 2>/dev/null || true
+systemctl enable nat-keepalive 2> /dev/null || true
+systemctl start nat-keepalive 2> /dev/null || true
+systemctl enable sshd-watchdog 2> /dev/null || true
+systemctl start sshd-watchdog 2> /dev/null || true
+systemctl enable ssh 2> /dev/null || true
+systemctl restart ssh 2> /dev/null || true
 # Apply kernel TCP keepalive values (may not have been applied from chroot)
-sysctl --system >/dev/null 2>&1 || true
+sysctl --system > /dev/null 2>&1 || true
 echo "[OK] NAT keepalive + sshd-watchdog + SSH stability ensured"
 
 ### ─── 4. Self-destruct ─────────────────────────────────────────────────────

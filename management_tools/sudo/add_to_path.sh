@@ -15,7 +15,7 @@ add_program_to_path() {
 				if [ -x "$path" ] && [ -f "$path" ]; then
 					found_programs+=("$path")
 				fi
-			done < <(find "$location" -name "*$program_name*" -type f 2>/dev/null)
+			done < <(find "$location" -name "*$program_name*" -type f 2> /dev/null)
 		fi
 	done
 
@@ -88,8 +88,8 @@ add_program_to_path() {
 	fi
 
 	# Add the directory to PATH in shell configuration file
-	echo -e "\n# Added by add_program_to_path script on $(date)" >>"$shell_config"
-	echo "export PATH=\"\$PATH:$selected_dir\"" >>"$shell_config"
+	echo -e "\n# Added by add_program_to_path script on $(date)" >> "$shell_config"
+	echo "export PATH=\"\$PATH:$selected_dir\"" >> "$shell_config"
 
 	echo -e "\n✅ Successfully added \"$selected_dir\" to PATH in $shell_config"
 	echo -e "✅ To apply changes to your current session, run: source $shell_config"

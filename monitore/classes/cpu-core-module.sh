@@ -5,18 +5,18 @@ cpu_core_module() {
 	register_metric "cpu_core"
 
 	# Multiple methods for CPU core count
-	cpu_count_nproc=$(nproc 2>/dev/null)
+	cpu_count_nproc=$(nproc 2> /dev/null)
 	if [ -z "$cpu_count_nproc" ] || [ "$cpu_count_nproc" -eq 0 ]; then
 		cpu_count_nproc="N/A"
 	fi
 
-	cpu_count_proc=$(grep -c processor /proc/cpuinfo 2>/dev/null)
+	cpu_count_proc=$(grep -c processor /proc/cpuinfo 2> /dev/null)
 	if [ -z "$cpu_count_proc" ] || [ "$cpu_count_proc" -eq 0 ]; then
 		cpu_count_proc="N/A"
 	fi
 
-	if command -v lscpu &>/dev/null; then
-		lscpu_filter=$(lscpu 2>/dev/null | awk '/^CPU\(s\)/ {print $2}')
+	if command -v lscpu &> /dev/null; then
+		lscpu_filter=$(lscpu 2> /dev/null | awk '/^CPU\(s\)/ {print $2}')
 		if [ -z "$lscpu_filter" ] || [ "$lscpu_filter" -eq 0 ]; then
 			lscpu_filter="N/A"
 		fi
@@ -24,8 +24,8 @@ cpu_core_module() {
 		lscpu_filter="N/A"
 	fi
 
-	if command -v getconf &>/dev/null; then
-		getconf_count=$(getconf _NPROCESSORS_ONLN 2>/dev/null)
+	if command -v getconf &> /dev/null; then
+		getconf_count=$(getconf _NPROCESSORS_ONLN 2> /dev/null)
 		if [ -z "$getconf_count" ] || [ "$getconf_count" -eq 0 ]; then
 			getconf_count="N/A"
 		fi
@@ -33,13 +33,13 @@ cpu_core_module() {
 		getconf_count="N/A"
 	fi
 
-	sys_cpu_count=$(ls -d /sys/devices/system/cpu/cpu[0-9]* 2>/dev/null | wc -l)
+	sys_cpu_count=$(ls -d /sys/devices/system/cpu/cpu[0-9]* 2> /dev/null | wc -l)
 	if [ -z "$sys_cpu_count" ] || [ "$sys_cpu_count" -eq 0 ]; then
 		sys_cpu_count="N/A"
 	fi
 
 	if [ -f /sys/devices/system/cpu/present ]; then
-		present_count=$(cat /sys/devices/system/cpu/present 2>/dev/null | awk -F- '{print $2+1}')
+		present_count=$(cat /sys/devices/system/cpu/present 2> /dev/null | awk -F- '{print $2+1}')
 		if [ -z "$present_count" ] || [ "$present_count" -eq 0 ]; then
 			present_count="N/A"
 		fi

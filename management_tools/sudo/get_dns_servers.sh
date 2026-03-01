@@ -1,8 +1,7 @@
 #!/bin/bash
 
-function get_dns_server
-{
-	if [ -f /etc/resolv.conf ];then
+function get_dns_server {
+	if [ -f /etc/resolv.conf ]; then
 		echo "From /etc/resolv.conf:"
 		grep -E "^nameserver" /etc/resolv.conf | while read -r line; do
 			echo "	-$line"
@@ -10,17 +9,17 @@ function get_dns_server
 	fi
 
 	# this one doesn't work properly
-	if command -v sudo service  &> /dev/null;then
+	if command -v sudo service &> /dev/null; then
 		echo "From systemd-resolve:"
 		sudo service systemd-resolved status | grep -E "DNS Servers|Current DNS Server|DNS server" | while read -r line; do
 			echo "	-$line"
 		done
 	fi
-	
+
 	#we use nmcli if available
 	if command -v nmcli &> /dev/null; then
-	       	echo "From NetworkManager:"
-       		nmcli device show  | grep -E "^IP4.DNS" | while read -r line; do 
+		echo "From NetworkManager:"
+		nmcli device show | grep -E "^IP4.DNS" | while read -r line; do
 			echo "	-$line"
 		done
 	fi
@@ -36,13 +35,15 @@ function get_dns_server
 	echo
 }
 
-function check_dns_resolution
-{
+function check_dns_resolution {
 	local domain="www.google.com"
 	if false; then
 		echo "Testing DNS resolution for $domain..."
 	fi
 	if host $domain &> /dev/null || nslookup $domain &> /dev/null || dig $domain +short &> /dev/null; then
-		log_message "
+		log_message "DNS resolution successful for $domain"
+	else
+		log_message "DNS resolution failed for $domain"
+	fi
 }
 get_dns_server

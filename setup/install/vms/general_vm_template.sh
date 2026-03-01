@@ -24,7 +24,7 @@ echo "Creating Born2beRoot VM for 42 School project..."
 mkdir -p "$VM_BASE_PATH/$VM_NAME"
 
 # Check if VM already exists
-if VBoxManage showvminfo "$VM_NAME" &>/dev/null; then
+if VBoxManage showvminfo "$VM_NAME" &> /dev/null; then
 	read -p "VM '$VM_NAME' already exists. Delete and recreate? (y/n): " confirm
 	if [[ $confirm == [yY] ]]; then
 		echo "Removing existing VM..."
@@ -68,7 +68,7 @@ echo "VM setup complete! Starting VM for installation..."
 VBoxManage startvm "$VM_NAME" --type gui
 
 # Print installation instructions
-cat <<EOF
+cat << EOF
 
 ====== BORN2BEROOT INSTALLATION GUIDE ======
 

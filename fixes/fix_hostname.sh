@@ -37,7 +37,7 @@ if grep -q "127.0.1.1.*$CURRENT_HOSTNAME" /etc/hosts; then
 	sed -i "s/127.0.1.1.*/127.0.1.1\t$CURRENT_HOSTNAME/" /etc/hosts
 else
 	echo -e "${YELLOW}Adding hostname entry to /etc/hosts...${NC}"
-	echo -e "127.0.1.1\t$CURRENT_HOSTNAME" >>/etc/hosts
+	echo -e "127.0.1.1\t$CURRENT_HOSTNAME" >> /etc/hosts
 fi
 
 # Verify the fix
@@ -46,7 +46,7 @@ cat /etc/hosts
 
 # Test hostname resolution
 echo -e "\n${YELLOW}Testing hostname resolution...${NC}"
-if ping -c 1 $CURRENT_HOSTNAME &>/dev/null; then
+if ping -c 1 $CURRENT_HOSTNAME &> /dev/null; then
 	echo -e "${GREEN}✓ Hostname resolution is working!${NC}"
 else
 	echo -e "${RED}✗ Hostname resolution still not working.${NC}"
@@ -61,8 +61,8 @@ if [ -f /etc/resolv.conf ]; then
 else
 	echo -e "${RED}✗ No resolv.conf file found${NC}"
 	echo -e "  Creating basic resolv.conf..."
-	echo "nameserver 8.8.8.8" >/etc/resolv.conf
-	echo "nameserver 8.8.4.4" >>/etc/resolv.conf
+	echo "nameserver 8.8.8.8" > /etc/resolv.conf
+	echo "nameserver 8.8.4.4" >> /etc/resolv.conf
 	echo -e "${GREEN}✓ Created basic DNS configuration${NC}"
 fi
 

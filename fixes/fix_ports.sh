@@ -40,7 +40,7 @@ fi
 
 # Check Web Server (if installed)
 echo -e "\n${YELLOW}Web Server Status:${NC}"
-if command -v lighttpd &>/dev/null; then
+if command -v lighttpd &> /dev/null; then
 	if systemctl is-active --quiet lighttpd; then
 		echo -e "${GREEN}✓ Lighttpd service is running${NC}"
 	else
@@ -86,7 +86,7 @@ else
 fi
 
 # Check for web server port in firewall
-if command -v lighttpd &>/dev/null; then
+if command -v lighttpd &> /dev/null; then
 	if ! ufw status | grep -q "80/tcp.*ALLOW"; then
 		echo -e "${RED}✗ Web server port 80 not allowed in firewall${NC}"
 		echo -e "  Adding web server port to firewall..."
@@ -122,7 +122,7 @@ else
 	echo -e "  This may indicate a service or configuration issue"
 fi
 
-if command -v lighttpd &>/dev/null; then
+if command -v lighttpd &> /dev/null; then
 	echo -e "${YELLOW}Testing web server port 80:${NC}"
 	if nc -z -v -w3 localhost 80 2>&1 | grep -q "succeeded"; then
 		echo -e "${GREEN}✓ Web server port 80 is reachable locally${NC}"
@@ -145,7 +145,7 @@ echo -e "   - Name: HTTP, Protocol: TCP, Host Port: 80, Guest Port: 80"
 echo -e "\n${YELLOW}${BOLD}RESTARTING SERVICES${NC}"
 echo -e "${YELLOW}Restarting SSH...${NC}"
 systemctl restart ssh
-if command -v lighttpd &>/dev/null; then
+if command -v lighttpd &> /dev/null; then
 	echo -e "${YELLOW}Restarting web server...${NC}"
 	systemctl restart lighttpd
 fi

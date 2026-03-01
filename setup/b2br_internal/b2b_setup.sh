@@ -46,7 +46,7 @@ configure_hostname() {
 	echo -e "${YELLOW}New hostname will be: $new_hostname${NC}"
 
 	# Update hostname
-	echo $new_hostname >/etc/hostname
+	echo $new_hostname > /etc/hostname
 
 	# Update /etc/hosts
 	sed -i "s/127.0.1.1.*$/127.0.1.1\t$new_hostname/" /etc/hosts
@@ -109,7 +109,7 @@ configure_sudo() {
 	echo -e "\n${BLUE}=== Sudo Configuration ===${NC}"
 
 	# Install sudo if not already installed
-	if ! command -v sudo &>/dev/null; then
+	if ! command -v sudo &> /dev/null; then
 		echo -e "${YELLOW}! Sudo not found. Installing...${NC}"
 		apt update
 		apt install -y sudo
@@ -125,7 +125,7 @@ configure_sudo() {
 
 	# Create sudo config file
 	echo -e "${YELLOW}! Creating sudo configuration...${NC}"
-	cat >/etc/sudoers.d/sudo_config <<EOF
+	cat > /etc/sudoers.d/sudo_config << EOF
 Defaults        passwd_tries=3
 Defaults        badpass_message="Incorrect password! Born2beRoot project requires attention to detail."
 Defaults        log_input
@@ -166,7 +166,7 @@ configure_user() {
 	fi
 
 	# Check if user42 group exists, create if not
-	if ! getent group user42 >/dev/null; then
+	if ! getent group user42 > /dev/null; then
 		echo -e "${YELLOW}! Creating group user42...${NC}"
 		groupadd user42
 		echo -e "${GREEN}✓ Group user42 created${NC}"
@@ -175,7 +175,7 @@ configure_user() {
 	fi
 
 	# Check if user exists
-	if id "$login" &>/dev/null; then
+	if id "$login" &> /dev/null; then
 		echo -e "${YELLOW}! User $login already exists${NC}"
 
 		# Add user to groups if not already member
@@ -216,7 +216,7 @@ configure_ssh() {
 	echo -e "\n${BLUE}=== SSH Configuration ===${NC}"
 
 	# Install OpenSSH if not already installed
-	if ! command -v sshd &>/dev/null; then
+	if ! command -v sshd &> /dev/null; then
 		echo -e "${YELLOW}! OpenSSH server not found. Installing...${NC}"
 		apt update
 		apt install -y openssh-server
@@ -248,7 +248,7 @@ configure_ufw() {
 	echo -e "\n${BLUE}=== UFW Configuration ===${NC}"
 
 	# Install UFW if not already installed
-	if ! command -v ufw &>/dev/null; then
+	if ! command -v ufw &> /dev/null; then
 		echo -e "${YELLOW}! UFW not found. Installing...${NC}"
 		apt update
 		apt install -y ufw
@@ -300,31 +300,31 @@ while true; do
 	read -p "Select an option [1-8]: " option
 
 	case $option in
-	1) configure_hostname ;;
-	2) configure_password_policy ;;
-	3) configure_sudo ;;
-	4) configure_user ;;
-	5) configure_ssh ;;
-	6) configure_ufw ;;
-	7)
-		configure_hostname
-		configure_password_policy
-		configure_sudo
-		configure_user
-		configure_ssh
-		configure_ufw
-		echo -e "\n${GREEN}✓ All Born2beRoot configurations have been applied!${NC}"
-		echo -e "${YELLOW}! Some changes may require a reboot to take effect.${NC}"
-		read -p "Press Enter to continue..."
-		;;
-	8)
-		echo -e "${GREEN}Exiting Born2beRoot Setup Utility${NC}"
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		read -p "Press Enter to continue..."
-		;;
+		1) configure_hostname ;;
+		2) configure_password_policy ;;
+		3) configure_sudo ;;
+		4) configure_user ;;
+		5) configure_ssh ;;
+		6) configure_ufw ;;
+		7)
+			configure_hostname
+			configure_password_policy
+			configure_sudo
+			configure_user
+			configure_ssh
+			configure_ufw
+			echo -e "\n${GREEN}✓ All Born2beRoot configurations have been applied!${NC}"
+			echo -e "${YELLOW}! Some changes may require a reboot to take effect.${NC}"
+			read -p "Press Enter to continue..."
+			;;
+		8)
+			echo -e "${GREEN}Exiting Born2beRoot Setup Utility${NC}"
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			read -p "Press Enter to continue..."
+			;;
 	esac
 
 	read -p "Press Enter to return to the main menu..."

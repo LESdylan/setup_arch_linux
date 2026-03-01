@@ -71,7 +71,7 @@ echo
 # Check file permissions
 echo "=== File Permissions ==="
 echo "Web root directory permissions:"
-ls -ld /var/www /var/www/html 2>/dev/null
+ls -ld /var/www /var/www/html 2> /dev/null
 echo "WordPress files ownership:"
 find /var/www/html -type f -name "*.php" -exec ls -l {} \; | head -n 5
 echo
@@ -83,11 +83,11 @@ echo
 
 # Check WordPress database existence
 echo "=== WordPress Database ==="
-if [ -n "$WP_CONFIG" ] && command -v mysql >/dev/null 2>&1; then
-	DB_NAME=$(grep DB_NAME "$WP_CONFIG" 2>/dev/null | cut -d \' -f 4)
+if [ -n "$WP_CONFIG" ] && command -v mysql > /dev/null 2>&1; then
+	DB_NAME=$(grep DB_NAME "$WP_CONFIG" 2> /dev/null | cut -d \' -f 4)
 	if [ -n "$DB_NAME" ]; then
 		echo "WordPress database name: $DB_NAME"
-		mysql -e "SHOW DATABASES LIKE '$DB_NAME';" 2>/dev/null && echo "Database $DB_NAME exists" || echo "Database $DB_NAME not found or access denied"
+		mysql -e "SHOW DATABASES LIKE '$DB_NAME';" 2> /dev/null && echo "Database $DB_NAME exists" || echo "Database $DB_NAME not found or access denied"
 	else
 		echo "Could not determine WordPress database name"
 	fi
@@ -107,10 +107,10 @@ echo
 
 # Check firewall status
 echo "=== Firewall Status ==="
-if command -v ufw >/dev/null 2>&1; then
+if command -v ufw > /dev/null 2>&1; then
 	echo "UFW Status:"
 	ufw status
-elif command -v iptables >/dev/null 2>&1; then
+elif command -v iptables > /dev/null 2>&1; then
 	echo "iptables Rules:"
 	iptables -L -n
 else
@@ -126,9 +126,9 @@ echo
 
 # WordPress URL configuration
 echo "=== WordPress URL Settings ==="
-if [ -n "$WP_CONFIG" ] && [ -n "$DB_NAME" ] && command -v mysql >/dev/null 2>&1; then
+if [ -n "$WP_CONFIG" ] && [ -n "$DB_NAME" ] && command -v mysql > /dev/null 2>&1; then
 	echo "WordPress URL configuration from database (if accessible):"
-	mysql -e "SELECT option_name, option_value FROM ${DB_NAME}.wp_options WHERE option_name IN ('siteurl', 'home');" 2>/dev/null || echo "Could not retrieve WordPress URL settings from database"
+	mysql -e "SELECT option_name, option_value FROM ${DB_NAME}.wp_options WHERE option_name IN ('siteurl', 'home');" 2> /dev/null || echo "Could not retrieve WordPress URL settings from database"
 	echo "NOTE: If siteurl or home are set to specific IPs/domains instead of localhost, this can cause redirect issues"
 else
 	echo "Could not check WordPress URL settings (missing DB name or MySQL client)"
@@ -138,7 +138,7 @@ echo
 # Test internal connectivity
 echo "=== Internal Connectivity Test ==="
 echo "Testing connection to local web server:"
-curl -I http://localhost 2>/dev/null || wget -qO- http://localhost --spider 2>/dev/null || echo "Failed to connect to local web server"
+curl -I http://localhost 2> /dev/null || wget -qO- http://localhost --spider 2> /dev/null || echo "Failed to connect to local web server"
 echo
 
 echo "============================================"

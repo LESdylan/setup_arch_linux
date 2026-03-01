@@ -5,9 +5,9 @@ set -e # Exit on any error
 # ── Portable downloader (curl preferred, wget fallback) ──────────────────────
 download() {
 	local url="$1" dest="$2"
-	if command -v curl >/dev/null 2>&1; then
+	if command -v curl > /dev/null 2>&1; then
 		curl -fL --progress-bar -o "$dest" "$url"
-	elif command -v wget >/dev/null 2>&1; then
+	elif command -v wget > /dev/null 2>&1; then
 		wget -O "$dest" "$url"
 	else
 		echo "Error: neither curl nor wget found. Install one of them." >&2
@@ -21,9 +21,9 @@ BASE_URL="https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/"
 echo "===== Creating Custom Debian ISO with Preseed ====="
 echo "Querying $BASE_URL for the latest ISO filename..."
 
-ISO_FILENAME=$(curl -fsSL "$BASE_URL" 2>/dev/null |
-	grep -oE 'debian-[0-9.]+-amd64-netinst\.iso' |
-	head -n1)
+ISO_FILENAME=$(curl -fsSL "$BASE_URL" 2> /dev/null \
+	| grep -oE 'debian-[0-9.]+-amd64-netinst\.iso' \
+	| head -n1)
 
 if [ -z "$ISO_FILENAME" ]; then
 	echo "Error: Could not determine the latest Debian ISO filename from $BASE_URL"
@@ -67,17 +67,17 @@ fi
 
 # Create extraction directory
 echo "Extracting ISO to $ISO_DIR..."
-chmod -R u+w "$ISO_DIR" 2>/dev/null || true
+chmod -R u+w "$ISO_DIR" 2> /dev/null || true
 rm -rf "$ISO_DIR"
 mkdir -p "$ISO_DIR"
 
 # Use xorriso (most portable for ISO manipulation), fallback to bsdtar, then 7z
-if command -v xorriso >/dev/null 2>&1; then
-	xorriso -osirrox on -indev "$ISO_FILENAME" -extract / "$ISO_DIR" 2>/dev/null
-elif command -v bsdtar >/dev/null 2>&1; then
+if command -v xorriso > /dev/null 2>&1; then
+	xorriso -osirrox on -indev "$ISO_FILENAME" -extract / "$ISO_DIR" 2> /dev/null
+elif command -v bsdtar > /dev/null 2>&1; then
 	bsdtar -C "$ISO_DIR" -xf "$ISO_FILENAME"
-elif command -v 7z >/dev/null 2>&1; then
-	7z x -o"$ISO_DIR" "$ISO_FILENAME" >/dev/null
+elif command -v 7z > /dev/null 2>&1; then
+	7z x -o"$ISO_DIR" "$ISO_FILENAME" > /dev/null
 else
 	echo "Error: No ISO extraction tool found. Install xorriso, bsdtar, or p7zip."
 	exit 1
@@ -130,7 +130,7 @@ if [ -f "$INITRD" ]; then
 	INITRD_ABS="$(cd "$(dirname "$INITRD")" && pwd)/$(basename "$INITRD")"
 	INJECT_DIR=$(mktemp -d)
 	cp "$PRESEED_FILE" "$INJECT_DIR/preseed.cfg"
-	(cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2>/dev/null | gzip >>"$INITRD_ABS")
+	(cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2> /dev/null | gzip >> "$INITRD_ABS")
 	rm -rf "$INJECT_DIR"
 	echo "  ✓ preseed.cfg injected into install.amd/initrd.gz"
 else
@@ -143,7 +143,7 @@ if [ -f "$INITRD_GTK" ]; then
 	INITRD_GTK_ABS="$(cd "$(dirname "$INITRD_GTK")" && pwd)/$(basename "$INITRD_GTK")"
 	INJECT_DIR=$(mktemp -d)
 	cp "$PRESEED_FILE" "$INJECT_DIR/preseed.cfg"
-	(cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2>/dev/null | gzip >>"$INITRD_GTK_ABS")
+	(cd "$INJECT_DIR" && echo preseed.cfg | cpio -o -H newc 2> /dev/null | gzip >> "$INITRD_GTK_ABS")
 	rm -rf "$INJECT_DIR"
 	echo "  ✓ preseed.cfg injected into install.amd/gtk/initrd.gz"
 fi
@@ -157,7 +157,7 @@ echo "Updating BIOS boot menu (isolinux)..."
 # 1. isolinux.cfg — set a 1-second timeout so it auto-boots
 ISOLINUX_MAIN="$ISO_DIR/isolinux/isolinux.cfg"
 if [ -f "$ISOLINUX_MAIN" ]; then
-	cat >"$ISOLINUX_MAIN" <<'EOF'
+	cat > "$ISOLINUX_MAIN" << 'EOF'
 # D-I config version 2.0
 path 
 include menu.cfg
@@ -173,7 +173,7 @@ fi
 # locale/country/keymap on cmdline as belt-and-suspenders for pre-preseed Qs.
 ISOLINUX_TXT="$ISO_DIR/isolinux/txt.cfg"
 if [ -f "$ISOLINUX_TXT" ]; then
-	cat >"$ISOLINUX_TXT" <<'EOF'
+	cat > "$ISOLINUX_TXT" << 'EOF'
 default install
 label install
     menu label ^Automated Install
@@ -187,7 +187,7 @@ fi
 # 3. gtk.cfg — remove "menu default" from Graphical Install
 ISOLINUX_GTK="$ISO_DIR/isolinux/gtk.cfg"
 if [ -f "$ISOLINUX_GTK" ]; then
-	cat >"$ISOLINUX_GTK" <<'EOF'
+	cat > "$ISOLINUX_GTK" << 'EOF'
 label installgui
     menu label ^Graphical install
     kernel /install.amd/vmlinuz
@@ -206,7 +206,7 @@ if [ -f "$GRUB_CFG" ]; then
 	cp "$GRUB_CFG" "$GRUB_CFG.bak"
 
 	# Create new GRUB config with auto-install as default
-	cat >"$GRUB_CFG" <<'GRUBEOF'
+	cat > "$GRUB_CFG" << 'GRUBEOF'
 set default=0
 set timeout=1
 
@@ -231,12 +231,12 @@ fi
 # Update MD5 sums
 echo "Updating MD5 checksums..."
 cd "$ISO_DIR"
-find . -type f ! -name md5sum.txt ! -path './isolinux/*' -exec md5sum {} + >md5sum.txt 2>/dev/null || true
+find . -type f ! -name md5sum.txt ! -path './isolinux/*' -exec md5sum {} + > md5sum.txt 2> /dev/null || true
 cd ..
 
 # Rebuild ISO
 echo "Rebuilding ISO with xorriso..."
-if ! command -v xorriso >/dev/null 2>&1; then
+if ! command -v xorriso > /dev/null 2>&1; then
 	echo "Error: xorriso is required to rebuild the ISO."
 	echo "Install it with:"
 	echo "  Debian/Ubuntu: sudo apt-get install -y xorriso"

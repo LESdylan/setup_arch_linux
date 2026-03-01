@@ -8,13 +8,13 @@ last_boot_module() {
 	format_boot_time() {
 		local input="$1"
 		# Try to convert to consistent format if possible
-		date -d "$input" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "$input"
+		date -d "$input" "+%Y-%m-%d %H:%M:%S" 2> /dev/null || echo "$input"
 	}
 
 	# Method 1: Using who command
 	get_boot_who() {
-		if command -v who &>/dev/null; then
-			local who_output=$(who -b 2>/dev/null)
+		if command -v who &> /dev/null; then
+			local who_output=$(who -b 2> /dev/null)
 			if [ -n "$who_output" ]; then
 				local boot_time=$(echo "$who_output" | awk '{print $3 " " $4}')
 				if [ -n "$boot_time" ]; then
@@ -32,8 +32,8 @@ last_boot_module() {
 
 	# Method 2: Using last reboot command
 	get_boot_last() {
-		if command -v last &>/dev/null; then
-			local boot_info=$(last reboot 2>/dev/null | head -1)
+		if command -v last &> /dev/null; then
+			local boot_info=$(last reboot 2> /dev/null | head -1)
 			if [[ -n "$boot_info" && "$boot_info" != *"wtmp begins"* ]]; then
 				local boot_time=$(echo "$boot_info" | awk '{print $5 " " $6 " " $7 " " $8}')
 				if [ -n "$boot_time" ]; then
@@ -51,8 +51,8 @@ last_boot_module() {
 
 	# Method 3: Using uptime -s
 	get_boot_uptime() {
-		if command -v uptime &>/dev/null && uptime -s &>/dev/null; then
-			local uptime_output=$(uptime -s 2>/dev/null)
+		if command -v uptime &> /dev/null && uptime -s &> /dev/null; then
+			local uptime_output=$(uptime -s 2> /dev/null)
 			if [ -n "$uptime_output" ]; then
 				echo "$uptime_output"
 			else
@@ -67,10 +67,10 @@ last_boot_module() {
 	get_boot_proc() {
 		if [[ -f /proc/uptime ]]; then
 			local current_time=$(date +%s)
-			local uptime_seconds=$(cat /proc/uptime 2>/dev/null | awk '{print $1}' | cut -d. -f1)
+			local uptime_seconds=$(cat /proc/uptime 2> /dev/null | awk '{print $1}' | cut -d. -f1)
 			if [ -n "$uptime_seconds" ]; then
 				local boot_time=$((current_time - uptime_seconds))
-				date -d "@$boot_time" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "N/A"
+				date -d "@$boot_time" "+%Y-%m-%d %H:%M:%S" 2> /dev/null || echo "N/A"
 			else
 				echo "N/A"
 			fi

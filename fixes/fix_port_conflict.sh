@@ -26,7 +26,7 @@ echo "Restarting SSH service..."
 sudo systemctl restart ssh
 
 # Start lighttpd on the correct port (if installed)
-if systemctl is-enabled lighttpd &>/dev/null; then
+if systemctl is-enabled lighttpd &> /dev/null; then
 	echo "Starting lighttpd on port 80..."
 	sudo systemctl start lighttpd
 fi

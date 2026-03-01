@@ -36,7 +36,7 @@ FTP_PORT=${FTP_PORT:-21}
 read -p "WordPress plugins path (e.g., /public_html/wp-content/plugins): " WP_PLUGINS_PATH
 
 # Check if required utilities are installed
-if ! command -v lftp &>/dev/null; then
+if ! command -v lftp &> /dev/null; then
 	echo -e "${RED}Error: 'lftp' command not found. Please install it:${NC}"
 	echo "  • Debian/Ubuntu: sudo apt-get install lftp"
 	echo "  • CentOS/RHEL: sudo yum install lftp"
@@ -48,7 +48,7 @@ echo -e "${YELLOW}\nPreparing to upload plugin...${NC}"
 
 # Create a temporary script for lftp to avoid password in command line
 TEMP_SCRIPT=$(mktemp)
-cat >$TEMP_SCRIPT <<EOF
+cat > $TEMP_SCRIPT << EOF
 open -u "$FTP_USER","$FTP_PASS" -p $FTP_PORT $FTP_SERVER
 set ssl:verify-certificate no
 set ftp:ssl-allow yes

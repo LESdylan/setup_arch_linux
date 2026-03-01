@@ -12,11 +12,11 @@ echo -e "${YELLOW}Running comprehensive checks...${NC}\n"
 
 # Check AppArmor (multiple methods)
 echo -e "${BLUE}=== CHECKING SECURITY MODULE ===${NC}"
-if sudo aa-status &>/dev/null || [ "$(sudo systemctl is-active apparmor)" = "active" ]; then
+if sudo aa-status &> /dev/null || [ "$(sudo systemctl is-active apparmor)" = "active" ]; then
 	echo -e "${GREEN}✓ AppArmor is active${NC}"
 	# Display enabled profiles
-	sudo aa-status 2>/dev/null | grep -q "profiles are in enforce mode" &&
-		echo -e "  $(sudo aa-status 2>/dev/null | grep "profiles are in enforce mode")"
+	sudo aa-status 2> /dev/null | grep -q "profiles are in enforce mode" \
+		&& echo -e "  $(sudo aa-status 2> /dev/null | grep "profiles are in enforce mode")"
 else
 	echo -e "${RED}✗ AppArmor is not active${NC}"
 	echo -e "  Fix: sudo systemctl start apparmor"
@@ -24,21 +24,21 @@ fi
 
 # Check UFW (improved with multiple detection methods)
 echo -e "\n${BLUE}=== CHECKING FIREWALL CONFIGURATION ===${NC}"
-if sudo systemctl is-active ufw &>/dev/null || sudo ufw status 2>/dev/null | grep -q "Status: active"; then
+if sudo systemctl is-active ufw &> /dev/null || sudo ufw status 2> /dev/null | grep -q "Status: active"; then
 	echo -e "${GREEN}✓ UFW is active${NC}"
 	# Show allowed ports
 	echo -e "  Allowed ports:"
-	sudo ufw status 2>/dev/null | grep "ALLOW" | sed 's/^/  /'
+	sudo ufw status 2> /dev/null | grep "ALLOW" | sed 's/^/  /'
 
 	# Check specific required ports
-	if sudo ufw status 2>/dev/null | grep -q "4242/tcp.*ALLOW"; then
+	if sudo ufw status 2> /dev/null | grep -q "4242/tcp.*ALLOW"; then
 		echo -e "${GREEN}✓ SSH port (4242) is allowed${NC}"
 	else
 		echo -e "${RED}✗ SSH port (4242) is not allowed${NC}"
 		echo -e "  Fix: sudo ufw allow 4242/tcp"
 	fi
 
-	if sudo ufw status 2>/dev/null | grep -q "80/tcp.*ALLOW"; then
+	if sudo ufw status 2> /dev/null | grep -q "80/tcp.*ALLOW"; then
 		echo -e "${GREEN}✓ HTTP port (80) is allowed${NC}"
 	else
 		echo -e "${RED}✗ HTTP port (80) is not allowed${NC}"
@@ -54,7 +54,7 @@ echo -e "\n${BLUE}=== CHECKING WEB SERVER ===${NC}"
 WEB_SERVER_FOUND=false
 
 # Check for Lighttpd
-if command -v lighttpd &>/dev/null && sudo systemctl is-active lighttpd &>/dev/null; then
+if command -v lighttpd &> /dev/null && sudo systemctl is-active lighttpd &> /dev/null; then
 	echo -e "${GREEN}✓ Lighttpd is active${NC}"
 	WEB_SERVER_FOUND=true
 	# Check if it's listening on port 80
@@ -66,7 +66,7 @@ if command -v lighttpd &>/dev/null && sudo systemctl is-active lighttpd &>/dev/n
 fi
 
 # Check for Apache2
-if command -v apache2 &>/dev/null && sudo systemctl is-active apache2 &>/dev/null; then
+if command -v apache2 &> /dev/null && sudo systemctl is-active apache2 &> /dev/null; then
 	echo -e "${GREEN}✓ Apache2 is active${NC}"
 	WEB_SERVER_FOUND=true
 	# Check if it's listening on port 80
@@ -78,7 +78,7 @@ if command -v apache2 &>/dev/null && sudo systemctl is-active apache2 &>/dev/nul
 fi
 
 # Check for Nginx
-if command -v nginx &>/dev/null && sudo systemctl is-active nginx &>/dev/null; then
+if command -v nginx &> /dev/null && sudo systemctl is-active nginx &> /dev/null; then
 	echo -e "${GREEN}✓ Nginx is active${NC}"
 	WEB_SERVER_FOUND=true
 	# Check if it's listening on port 80
@@ -101,7 +101,7 @@ PASS_POLICY_OK=true
 # Check if required PAM modules are installed
 if [ -f "/etc/pam.d/common-password" ]; then
 	# Check minimum length
-	if sudo grep -q "minlen=10" /etc/pam.d/common-password 2>/dev/null; then
+	if sudo grep -q "minlen=10" /etc/pam.d/common-password 2> /dev/null; then
 		echo -e "${GREEN}✓ Password minimum length (10) configured${NC}"
 	else
 		echo -e "${RED}✗ Password minimum length not properly configured${NC}"
@@ -110,7 +110,7 @@ if [ -f "/etc/pam.d/common-password" ]; then
 	fi
 
 	# Check for uppercase requirement
-	if sudo grep -q "ucredit=-1" /etc/pam.d/common-password 2>/dev/null; then
+	if sudo grep -q "ucredit=-1" /etc/pam.d/common-password 2> /dev/null; then
 		echo -e "${GREEN}✓ Password requires uppercase characters${NC}"
 	else
 		echo -e "${RED}✗ Password uppercase requirement not configured${NC}"
@@ -119,7 +119,7 @@ if [ -f "/etc/pam.d/common-password" ]; then
 	fi
 
 	# Check for digit requirement
-	if sudo grep -q "dcredit=-1" /etc/pam.d/common-password 2>/dev/null; then
+	if sudo grep -q "dcredit=-1" /etc/pam.d/common-password 2> /dev/null; then
 		echo -e "${GREEN}✓ Password requires digits${NC}"
 	else
 		echo -e "${RED}✗ Password digit requirement not configured${NC}"
@@ -175,7 +175,7 @@ echo -e "\n${BLUE}=== CHECKING SUDO CONFIGURATION ===${NC}"
 SUDO_CONFIG_OK=true
 
 # Check sudo log file configuration
-sudo_log_file=$(sudo grep "logfile=" /etc/sudoers /etc/sudoers.d/* 2>/dev/null | grep -o "/[^ ]*" | head -1)
+sudo_log_file=$(sudo grep "logfile=" /etc/sudoers /etc/sudoers.d/* 2> /dev/null | grep -o "/[^ ]*" | head -1)
 if [ -n "$sudo_log_file" ]; then
 	echo -e "${GREEN}✓ Sudo logging is configured to: $sudo_log_file${NC}"
 
@@ -195,7 +195,7 @@ else
 fi
 
 # Check sudo security settings
-if sudo grep -q "requiretty" /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+if sudo grep -q "requiretty" /etc/sudoers /etc/sudoers.d/* 2> /dev/null; then
 	echo -e "${GREEN}✓ Sudo requiretty is configured${NC}"
 else
 	echo -e "${RED}✗ Sudo requiretty is not configured${NC}"
@@ -203,7 +203,7 @@ else
 	SUDO_CONFIG_OK=false
 fi
 
-if sudo grep -q "passwd_tries" /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+if sudo grep -q "passwd_tries" /etc/sudoers /etc/sudoers.d/* 2> /dev/null; then
 	echo -e "${GREEN}✓ Sudo password attempts limit is configured${NC}"
 else
 	echo -e "${RED}✗ Sudo password attempts limit is not configured${NC}"
@@ -211,7 +211,7 @@ else
 	SUDO_CONFIG_OK=false
 fi
 
-if sudo grep -q "badpass_message" /etc/sudoers /etc/sudoers.d/* 2>/dev/null; then
+if sudo grep -q "badpass_message" /etc/sudoers /etc/sudoers.d/* 2> /dev/null; then
 	echo -e "${GREEN}✓ Sudo bad password message is configured${NC}"
 else
 	echo -e "${RED}✗ Sudo bad password message is not configured${NC}"
@@ -255,8 +255,8 @@ if [ -f "/var/www/html/wp-config.php" ]; then
 	echo -e "  Database user: $db_user"
 
 	# Check database connection
-	if command -v mysql &>/dev/null; then
-		if sudo mysql -e "SHOW DATABASES" 2>/dev/null | grep -q "$db_name"; then
+	if command -v mysql &> /dev/null; then
+		if sudo mysql -e "SHOW DATABASES" 2> /dev/null | grep -q "$db_name"; then
 			echo -e "${GREEN}✓ WordPress database exists${NC}"
 		else
 			echo -e "${RED}✗ WordPress database ($db_name) not found in MySQL${NC}"
@@ -264,7 +264,7 @@ if [ -f "/var/www/html/wp-config.php" ]; then
 	fi
 
 	# Check PHP
-	if command -v php &>/dev/null; then
+	if command -v php &> /dev/null; then
 		php_version=$(php -v | head -1 | cut -d' ' -f2)
 		echo -e "${GREEN}✓ PHP is installed (version $php_version)${NC}"
 	else
@@ -277,16 +277,16 @@ fi
 
 # LVM Configuration Check
 echo -e "\n${BLUE}=== CHECKING LVM CONFIGURATION ===${NC}"
-if command -v lvs &>/dev/null && sudo lvs &>/dev/null; then
+if command -v lvs &> /dev/null && sudo lvs &> /dev/null; then
 	echo -e "${GREEN}✓ LVM is configured${NC}"
 	# Show LVM volumes
 	echo -e "  LVM Logical Volumes:"
-	sudo lvs 2>/dev/null | sed 's/^/  /'
+	sudo lvs 2> /dev/null | sed 's/^/  /'
 
 	# Check required partitions
 	required_partitions=("root" "home" "var" "srv" "tmp" "var-log" "var--log")
 	for part in "${required_partitions[@]}"; do
-		if sudo lvs 2>/dev/null | grep -q "$part"; then
+		if sudo lvs 2> /dev/null | grep -q "$part"; then
 			echo -e "${GREEN}✓ Found $part partition${NC}"
 		fi
 	done
@@ -296,7 +296,7 @@ fi
 
 # Monitoring Script Check
 echo -e "\n${BLUE}=== CHECKING MONITORING SCRIPT ===${NC}"
-monitoring_script=$(find /root /home -name "monitoring.sh" 2>/dev/null | head -1)
+monitoring_script=$(find /root /home -name "monitoring.sh" 2> /dev/null | head -1)
 if [ -n "$monitoring_script" ]; then
 	echo -e "${GREEN}✓ Monitoring script found: $monitoring_script${NC}"
 
@@ -309,7 +309,7 @@ if [ -n "$monitoring_script" ]; then
 	fi
 
 	# Check crontab
-	if sudo crontab -l 2>/dev/null | grep -q "monitoring.sh"; then
+	if sudo crontab -l 2> /dev/null | grep -q "monitoring.sh"; then
 		cron_schedule=$(sudo crontab -l | grep "monitoring.sh" | awk '{print $1,$2,$3,$4,$5}')
 		echo -e "${GREEN}✓ Monitoring script is scheduled in crontab: $cron_schedule${NC}"
 	else

@@ -14,7 +14,7 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # Identify PHP version
-PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "")
+PHP_VERSION=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2> /dev/null || echo "")
 
 if [ -z "$PHP_VERSION" ]; then
 	echo "Could not determine PHP version. Installing default PHP packages..."

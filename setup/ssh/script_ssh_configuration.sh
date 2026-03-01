@@ -89,7 +89,7 @@ change_port() {
 	fi
 
 	# Check if port is already in use
-	if ss -tuln | grep ":$new_port " >/dev/null; then
+	if ss -tuln | grep ":$new_port " > /dev/null; then
 		echo -e "${RED}✗ Port $new_port is already in use by another service${NC}"
 		return 1
 	fi
@@ -100,14 +100,14 @@ change_port() {
 	# Update port in sshd_config
 	sed -i "s/^#*Port .*/Port $new_port/" /etc/ssh/sshd_config
 	if ! grep -q "^Port " /etc/ssh/sshd_config; then
-		echo "Port $new_port" >>/etc/ssh/sshd_config
+		echo "Port $new_port" >> /etc/ssh/sshd_config
 	fi
 
 	echo -e "${GREEN}✓ SSH port changed to $new_port${NC}"
 	echo -e "${YELLOW}! Remember to update firewall rules and port forwarding${NC}"
 
 	# Update UFW rules if installed
-	if command -v ufw >/dev/null; then
+	if command -v ufw > /dev/null; then
 		echo -e "${YELLOW}! UFW detected. Updating firewall rules...${NC}"
 		ufw allow $new_port/tcp
 		if [ "$current_port" != "22 (default)" ]; then
@@ -137,7 +137,7 @@ configure_key_auth() {
 		# Update sshd_config to enable key auth
 		sed -i "s/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/" /etc/ssh/sshd_config
 		if ! grep -q "^PubkeyAuthentication " /etc/ssh/sshd_config; then
-			echo "PubkeyAuthentication yes" >>/etc/ssh/sshd_config
+			echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config
 		fi
 
 		echo -e "${GREEN}✓ SSH key authentication enabled${NC}"
@@ -150,110 +150,110 @@ configure_key_auth() {
 	read -p "Select an option [1-3]: " key_option
 
 	case $key_option in
-	1)
-		# Generate new key pair
-		echo -e "\n${BLUE}=== Generate New SSH Key Pair ===${NC}"
-		read -p "Enter username to create key for: " key_user
+		1)
+			# Generate new key pair
+			echo -e "\n${BLUE}=== Generate New SSH Key Pair ===${NC}"
+			read -p "Enter username to create key for: " key_user
 
-		# Check if user exists
-		if ! id "$key_user" &>/dev/null; then
-			echo -e "${RED}✗ User $key_user does not exist${NC}"
-			return 1
-		fi
-
-		# Get user's home directory
-		user_home=$(eval echo ~$key_user)
-
-		# Create .ssh directory if it doesn't exist
-		if [ ! -d "$user_home/.ssh" ]; then
-			mkdir -p "$user_home/.ssh"
-			chmod 700 "$user_home/.ssh"
-			chown $key_user:$key_user "$user_home/.ssh"
-		fi
-
-		# Generate key
-		ssh_dir="$user_home/.ssh"
-		key_file="$ssh_dir/id_rsa"
-
-		# Check if key already exists
-		if [ -f "$key_file" ]; then
-			read -p "SSH key already exists. Overwrite? (y/n): " overwrite
-			if [[ "$overwrite" != "y" && "$overwrite" != "Y" ]]; then
-				echo -e "${YELLOW}! Key generation skipped${NC}"
-				return 0
+			# Check if user exists
+			if ! id "$key_user" &> /dev/null; then
+				echo -e "${RED}✗ User $key_user does not exist${NC}"
+				return 1
 			fi
-		fi
 
-		# Generate key as the user
-		echo -e "${YELLOW}! Generating SSH key pair...${NC}"
-		sudo -u $key_user ssh-keygen -t rsa -b 4096 -f "$key_file" -N ""
+			# Get user's home directory
+			user_home=$(eval echo ~$key_user)
 
-		# Setup authorized_keys
-		if [ -f "$key_file.pub" ]; then
-			cat "$key_file.pub" >>"$ssh_dir/authorized_keys"
-			chmod 600 "$ssh_dir/authorized_keys"
-			chown $key_user:$key_user "$ssh_dir/authorized_keys"
-			echo -e "${GREEN}✓ SSH key pair generated and added to authorized_keys${NC}"
-			echo -e "${YELLOW}! Private key location: $key_file${NC}"
-			echo -e "${YELLOW}! Public key location: $key_file.pub${NC}"
-		else
-			echo -e "${RED}✗ Failed to generate SSH key pair${NC}"
+			# Create .ssh directory if it doesn't exist
+			if [ ! -d "$user_home/.ssh" ]; then
+				mkdir -p "$user_home/.ssh"
+				chmod 700 "$user_home/.ssh"
+				chown $key_user:$key_user "$user_home/.ssh"
+			fi
+
+			# Generate key
+			ssh_dir="$user_home/.ssh"
+			key_file="$ssh_dir/id_rsa"
+
+			# Check if key already exists
+			if [ -f "$key_file" ]; then
+				read -p "SSH key already exists. Overwrite? (y/n): " overwrite
+				if [[ "$overwrite" != "y" && "$overwrite" != "Y" ]]; then
+					echo -e "${YELLOW}! Key generation skipped${NC}"
+					return 0
+				fi
+			fi
+
+			# Generate key as the user
+			echo -e "${YELLOW}! Generating SSH key pair...${NC}"
+			sudo -u $key_user ssh-keygen -t rsa -b 4096 -f "$key_file" -N ""
+
+			# Setup authorized_keys
+			if [ -f "$key_file.pub" ]; then
+				cat "$key_file.pub" >> "$ssh_dir/authorized_keys"
+				chmod 600 "$ssh_dir/authorized_keys"
+				chown $key_user:$key_user "$ssh_dir/authorized_keys"
+				echo -e "${GREEN}✓ SSH key pair generated and added to authorized_keys${NC}"
+				echo -e "${YELLOW}! Private key location: $key_file${NC}"
+				echo -e "${YELLOW}! Public key location: $key_file.pub${NC}"
+			else
+				echo -e "${RED}✗ Failed to generate SSH key pair${NC}"
+				return 1
+			fi
+			;;
+
+		2)
+			# Add existing public key
+			echo -e "\n${BLUE}=== Add Existing Public Key ===${NC}"
+			read -p "Enter username to add key for: " key_user
+
+			# Check if user exists
+			if ! id "$key_user" &> /dev/null; then
+				echo -e "${RED}✗ User $key_user does not exist${NC}"
+				return 1
+			fi
+
+			# Get user's home directory
+			user_home=$(eval echo ~$key_user)
+
+			# Create .ssh directory if it doesn't exist
+			if [ ! -d "$user_home/.ssh" ]; then
+				mkdir -p "$user_home/.ssh"
+				chmod 700 "$user_home/.ssh"
+				chown $key_user:$key_user "$user_home/.ssh"
+			fi
+
+			# Setup authorized_keys file
+			auth_keys="$user_home/.ssh/authorized_keys"
+
+			echo -e "${YELLOW}! Paste the public key (ssh-rsa ...)${NC}"
+			echo -e "${YELLOW}! Press Ctrl+D when finished${NC}"
+
+			# Read public key
+			pub_key=$(cat)
+
+			# Validate public key format
+			if ! echo "$pub_key" | grep -q "^ssh-rsa "; then
+				echo -e "${RED}✗ Invalid public key format${NC}"
+				return 1
+			fi
+
+			# Add to authorized_keys
+			echo "$pub_key" >> "$auth_keys"
+			chmod 600 "$auth_keys"
+			chown $key_user:$key_user "$auth_keys"
+
+			echo -e "${GREEN}✓ Public key added to $auth_keys${NC}"
+			;;
+
+		3)
+			echo -e "${YELLOW}! Key setup skipped${NC}"
+			;;
+
+		*)
+			echo -e "${RED}✗ Invalid option${NC}"
 			return 1
-		fi
-		;;
-
-	2)
-		# Add existing public key
-		echo -e "\n${BLUE}=== Add Existing Public Key ===${NC}"
-		read -p "Enter username to add key for: " key_user
-
-		# Check if user exists
-		if ! id "$key_user" &>/dev/null; then
-			echo -e "${RED}✗ User $key_user does not exist${NC}"
-			return 1
-		fi
-
-		# Get user's home directory
-		user_home=$(eval echo ~$key_user)
-
-		# Create .ssh directory if it doesn't exist
-		if [ ! -d "$user_home/.ssh" ]; then
-			mkdir -p "$user_home/.ssh"
-			chmod 700 "$user_home/.ssh"
-			chown $key_user:$key_user "$user_home/.ssh"
-		fi
-
-		# Setup authorized_keys file
-		auth_keys="$user_home/.ssh/authorized_keys"
-
-		echo -e "${YELLOW}! Paste the public key (ssh-rsa ...)${NC}"
-		echo -e "${YELLOW}! Press Ctrl+D when finished${NC}"
-
-		# Read public key
-		pub_key=$(cat)
-
-		# Validate public key format
-		if ! echo "$pub_key" | grep -q "^ssh-rsa "; then
-			echo -e "${RED}✗ Invalid public key format${NC}"
-			return 1
-		fi
-
-		# Add to authorized_keys
-		echo "$pub_key" >>"$auth_keys"
-		chmod 600 "$auth_keys"
-		chown $key_user:$key_user "$auth_keys"
-
-		echo -e "${GREEN}✓ Public key added to $auth_keys${NC}"
-		;;
-
-	3)
-		echo -e "${YELLOW}! Key setup skipped${NC}"
-		;;
-
-	*)
-		echo -e "${RED}✗ Invalid option${NC}"
-		return 1
-		;;
+			;;
 	esac
 
 	return 0
@@ -274,7 +274,7 @@ disable_password_auth() {
 		# Update sshd_config to disable password auth
 		sed -i "s/^#*PasswordAuthentication .*/PasswordAuthentication no/" /etc/ssh/sshd_config
 		if ! grep -q "^PasswordAuthentication " /etc/ssh/sshd_config; then
-			echo "PasswordAuthentication no" >>/etc/ssh/sshd_config
+			echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
 		fi
 
 		echo -e "${GREEN}✓ Password authentication disabled${NC}"
@@ -285,7 +285,7 @@ disable_password_auth() {
 		# Update sshd_config to enable password auth
 		sed -i "s/^#*PasswordAuthentication .*/PasswordAuthentication yes/" /etc/ssh/sshd_config
 		if ! grep -q "^PasswordAuthentication " /etc/ssh/sshd_config; then
-			echo "PasswordAuthentication yes" >>/etc/ssh/sshd_config
+			echo "PasswordAuthentication yes" >> /etc/ssh/sshd_config
 		fi
 
 		echo -e "${GREEN}✓ Password authentication enabled${NC}"
@@ -310,7 +310,7 @@ disable_root_login() {
 		# Update sshd_config to disable root login
 		sed -i "s/^#*PermitRootLogin .*/PermitRootLogin no/" /etc/ssh/sshd_config
 		if ! grep -q "^PermitRootLogin " /etc/ssh/sshd_config; then
-			echo "PermitRootLogin no" >>/etc/ssh/sshd_config
+			echo "PermitRootLogin no" >> /etc/ssh/sshd_config
 		fi
 
 		echo -e "${GREEN}✓ Root login disabled${NC}"
@@ -321,7 +321,7 @@ disable_root_login() {
 		# Update sshd_config to enable root login
 		sed -i "s/^#*PermitRootLogin .*/PermitRootLogin yes/" /etc/ssh/sshd_config
 		if ! grep -q "^PermitRootLogin " /etc/ssh/sshd_config; then
-			echo "PermitRootLogin yes" >>/etc/ssh/sshd_config
+			echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
 		fi
 
 		echo -e "${GREEN}✓ Root login enabled${NC}"
@@ -355,7 +355,7 @@ configure_login_grace() {
 	# Update login grace time in sshd_config
 	sed -i "s/^#*LoginGraceTime .*/LoginGraceTime $new_time/" /etc/ssh/sshd_config
 	if ! grep -q "^LoginGraceTime " /etc/ssh/sshd_config; then
-		echo "LoginGraceTime $new_time" >>/etc/ssh/sshd_config
+		echo "LoginGraceTime $new_time" >> /etc/ssh/sshd_config
 	fi
 
 	echo -e "${GREEN}✓ Login grace time set to $new_time${NC}"
@@ -388,7 +388,7 @@ configure_max_auth() {
 	# Update max auth tries in sshd_config
 	sed -i "s/^#*MaxAuthTries .*/MaxAuthTries $new_max/" /etc/ssh/sshd_config
 	if ! grep -q "^MaxAuthTries " /etc/ssh/sshd_config; then
-		echo "MaxAuthTries $new_max" >>/etc/ssh/sshd_config
+		echo "MaxAuthTries $new_max" >> /etc/ssh/sshd_config
 	fi
 
 	echo -e "${GREEN}✓ Maximum authentication attempts set to $new_max${NC}"
@@ -427,7 +427,7 @@ configure_protocol() {
 			cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak.$(date +%Y%m%d%H%M%S)
 
 			# Add Protocol 2
-			echo "Protocol 2" >>/etc/ssh/sshd_config
+			echo "Protocol 2" >> /etc/ssh/sshd_config
 			echo -e "${GREEN}✓ Protocol 2 explicitly set in configuration${NC}"
 		fi
 	fi
@@ -479,12 +479,12 @@ configure_idle_timeout() {
 	# Update client alive settings in sshd_config
 	sed -i "s/^#*ClientAliveInterval .*/ClientAliveInterval $new_interval/" /etc/ssh/sshd_config
 	if ! grep -q "^ClientAliveInterval " /etc/ssh/sshd_config; then
-		echo "ClientAliveInterval $new_interval" >>/etc/ssh/sshd_config
+		echo "ClientAliveInterval $new_interval" >> /etc/ssh/sshd_config
 	fi
 
 	sed -i "s/^#*ClientAliveCountMax .*/ClientAliveCountMax $new_count/" /etc/ssh/sshd_config
 	if ! grep -q "^ClientAliveCountMax " /etc/ssh/sshd_config; then
-		echo "ClientAliveCountMax $new_count" >>/etc/ssh/sshd_config
+		echo "ClientAliveCountMax $new_count" >> /etc/ssh/sshd_config
 	fi
 
 	echo -e "${GREEN}✓ Idle timeout settings updated${NC}"
@@ -558,7 +558,7 @@ show_firewall_status() {
 	echo -e "\n${BLUE}=== Firewall Status ===${NC}"
 
 	# Check if UFW is installed
-	if command -v ufw >/dev/null; then
+	if command -v ufw > /dev/null; then
 		echo -e "${GREEN}✓ UFW (Uncomplicated Firewall) is installed${NC}"
 
 		# Check status
@@ -634,26 +634,26 @@ while true; do
 	read -p "Select an option [1-13]: " option
 
 	case $option in
-	1) install_ssh ;;
-	2) change_port ;;
-	3) configure_key_auth ;;
-	4) disable_password_auth ;;
-	5) disable_root_login ;;
-	6) configure_login_grace ;;
-	7) configure_max_auth ;;
-	8) configure_protocol ;;
-	9) configure_idle_timeout ;;
-	10) show_firewall_status ;;
-	11) setup_port_forwarding ;;
-	12) restart_ssh ;;
-	13)
-		echo -e "${GREEN}Exiting SSH Configuration Utility${NC}"
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		read -p "Press Enter to continue..."
-		;;
+		1) install_ssh ;;
+		2) change_port ;;
+		3) configure_key_auth ;;
+		4) disable_password_auth ;;
+		5) disable_root_login ;;
+		6) configure_login_grace ;;
+		7) configure_max_auth ;;
+		8) configure_protocol ;;
+		9) configure_idle_timeout ;;
+		10) show_firewall_status ;;
+		11) setup_port_forwarding ;;
+		12) restart_ssh ;;
+		13)
+			echo -e "${GREEN}Exiting SSH Configuration Utility${NC}"
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			read -p "Press Enter to continue..."
+			;;
 	esac
 
 	read -p "Press Enter to return to the main menu..."

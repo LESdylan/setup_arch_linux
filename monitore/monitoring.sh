@@ -66,10 +66,10 @@ update_metric_state() {
 get_state_name() {
 	local state=$1
 	case $state in
-	$STATE_OK) echo "OK" ;;
-	$STATE_WARNING) echo "WARNING" ;;
-	$STATE_ERROR) echo "ERROR" ;;
-	*) echo "UNKNOWN" ;;
+		$STATE_OK) echo "OK" ;;
+		$STATE_WARNING) echo "WARNING" ;;
+		$STATE_ERROR) echo "ERROR" ;;
+		*) echo "UNKNOWN" ;;
 	esac
 }
 
@@ -77,10 +77,10 @@ get_state_name() {
 get_state_color() {
 	local state=$1
 	case $state in
-	$STATE_OK) echo "${GREEN}$(get_state_name $state)${NC}" ;;
-	$STATE_WARNING) echo "${YELLOW}$(get_state_name $state)${NC}" ;;
-	$STATE_ERROR) echo "${RED}$(get_state_name $state)${NC}" ;;
-	*) echo "UNKNOWN" ;;
+		$STATE_OK) echo "${GREEN}$(get_state_name $state)${NC}" ;;
+		$STATE_WARNING) echo "${YELLOW}$(get_state_name $state)${NC}" ;;
+		$STATE_ERROR) echo "${RED}$(get_state_name $state)${NC}" ;;
+		*) echo "UNKNOWN" ;;
 	esac
 }
 
@@ -113,10 +113,10 @@ print_verification_result() {
 	# Metric name with appropriate color based on state
 	local color_prefix=""
 	case $state in
-	$STATE_OK) color_prefix="${GREEN}" ;;
-	$STATE_WARNING) color_prefix="${YELLOW}" ;;
-	$STATE_ERROR) color_prefix="${RED}" ;;
-	*) color_prefix="${LIGHT_GRAY}" ;;
+		$STATE_OK) color_prefix="${GREEN}" ;;
+		$STATE_WARNING) color_prefix="${YELLOW}" ;;
+		$STATE_ERROR) color_prefix="${RED}" ;;
+		*) color_prefix="${LIGHT_GRAY}" ;;
 	esac
 
 	# Print metric indicator with fancy format
@@ -414,7 +414,7 @@ ${CYAN}#Sudo:${NC} $sudo_count cmd
 #Sudo : $sudo_count cmd
 "
 
-	wall "$PLAIN_OUTPUT" 2>/dev/null || true
+	wall "$PLAIN_OUTPUT" 2> /dev/null || true
 }
 
 # Run the main function

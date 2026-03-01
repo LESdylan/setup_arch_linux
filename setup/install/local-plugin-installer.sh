@@ -33,7 +33,7 @@ is_wordpress_dir() {
 # Function to check if a directory looks like a WordPress plugin
 is_plugin_dir() {
 	# Check if any PHP file contains Plugin Name: in the directory
-	if grep -r "Plugin Name:" "$1"/*.php >/dev/null 2>&1; then
+	if grep -r "Plugin Name:" "$1"/*.php > /dev/null 2>&1; then
 		return 0
 	else
 		return 1

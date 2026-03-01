@@ -1,0 +1,35 @@
+# EditorConfig — consistent style across editors and shfmt
+# https://editorconfig.org
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.sh]
+indent_style = tab
+indent_size = 4
+# shfmt flags: -i 0 -bn -ci -sr -ln bash
+# -i 0   = tabs
+# -bn    = binary ops (&&, ||) start next line
+# -ci    = indent switch cases
+# -sr    = redirect operators separated by space
+# -ln bash = bash dialect
+shell_variant = bash
+binary_next_line = true
+switch_case_indent = true
+space_redirects = true
+
+[Makefile]
+indent_style = tab
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.{json,md}]
+indent_style = space
+indent_size = 2

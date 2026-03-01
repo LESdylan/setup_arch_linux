@@ -17,7 +17,7 @@ fi
 
 # Step 1: Verify AppArmor is running
 echo -e "\nStep 1: Verifying AppArmor status..."
-aa-status >/dev/null 2>&1
+aa-status > /dev/null 2>&1
 if [ $? -ne 0 ]; then
 	echo "❌ AppArmor is not running. Please run the configuration script first."
 	exit 1
@@ -39,7 +39,7 @@ aa-status | grep -A 1 mysqld || echo "   ❌ Not found"
 echo -e "\nStep 3: Creating security test files..."
 
 # Test file that attempts various security violations
-cat >/var/www/html/security-test.php <<'EOF'
+cat > /var/www/html/security-test.php << 'EOF'
 <?php
 echo "<h1>WordPress AppArmor Security Test</h1>";
 echo "<p>This test demonstrates how AppArmor protects your WordPress site.</p>";
@@ -75,7 +75,7 @@ chown www-data:www-data /var/www/html/security-test.php
 chmod 644 /var/www/html/security-test.php
 
 # Step 4: Create a command line security test
-cat >/root/apparmor-security-test.sh <<'EOF'
+cat > /root/apparmor-security-test.sh << 'EOF'
 #!/bin/bash
 
 echo "==== WordPress AppArmor Security Command-Line Test ===="

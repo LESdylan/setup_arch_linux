@@ -11,7 +11,7 @@ echo "Backup location: $BACKUP_DIR"
 
 # Option 1: Compressed disk image (recommended - saves space but preserves everything)
 echo "Creating compressed disk image backup (this will take 30-60 minutes)..."
-sudo dd if=/dev/nvme1n1 bs=4M status=progress | gzip -c >"$BACKUP_DIR/complete_system.img.gz"
+sudo dd if=/dev/nvme1n1 bs=4M status=progress | gzip -c > "$BACKUP_DIR/complete_system.img.gz"
 
 # Create backup info file
 echo "Creating backup information file..."
@@ -23,11 +23,11 @@ echo "Creating backup information file..."
 	echo ""
 	echo "To restore this backup:"
 	echo "gunzip -c $BACKUP_DIR/complete_system.img.gz | sudo dd of=/dev/nvme1n1 bs=4M status=progress"
-} >"$BACKUP_DIR/backup_info.txt"
+} > "$BACKUP_DIR/backup_info.txt"
 
 # Also backup your package list and repositories
 echo "Backing up package list and repositories..."
-dpkg --get-selections >"$BACKUP_DIR/installed_packages.txt"
+dpkg --get-selections > "$BACKUP_DIR/installed_packages.txt"
 sudo cp -r /etc/apt/sources.list* "$BACKUP_DIR/apt_sources/"
 
 echo "Backup complete!"

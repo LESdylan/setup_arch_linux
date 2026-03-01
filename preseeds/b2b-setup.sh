@@ -18,7 +18,7 @@ exec > >(tee -a "$LOG") 2>&1
 echo "=== Born2beRoot setup starting ($(date)) ==="
 
 ### ─── 1. APT sources ────────────────────────────────────────────────────────
-cat >/etc/apt/sources.list <<'SRCEOF'
+cat > /etc/apt/sources.list << 'SRCEOF'
 deb http://deb.debian.org/debian trixie main contrib non-free non-free-firmware
 deb http://deb.debian.org/debian trixie-updates main contrib non-free non-free-firmware
 deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
@@ -63,10 +63,10 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 echo "Configuring third-party repositories..."
 
 # 1. MongoDB (Usamos [trusted=yes] para bypassear el bloqueo de SHA-1 de Debian Trixie)
-echo "deb [trusted=yes] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" >/etc/apt/sources.list.d/mongodb-org-7.0.list
+echo "deb [trusted=yes] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" > /etc/apt/sources.list.d/mongodb-org-7.0.list
 
 # 2. Kubernetes (Usamos [trusted=yes] para bypassear el bloqueo de firmas v3)
-echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" >/etc/apt/sources.list.d/kubernetes.list
+echo "deb [trusted=yes] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /" > /etc/apt/sources.list.d/kubernetes.list
 
 # Update APT e instalamos Mongo, K8s y PIPX
 apt-get update -qq || true
@@ -74,7 +74,7 @@ $APT mongodb-org kubectl pipx || true
 echo "[OK] MongoDB, Kubectl and Pipx installed"
 
 # Enable MongoDB service (arrancará en el próximo reboot real)
-systemctl enable mongod 2>/dev/null || true
+systemctl enable mongod 2> /dev/null || true
 
 # 3. NPM Global Packages
 echo "Installing NPM global packages..."
@@ -96,28 +96,28 @@ echo "[OK] Golangci-lint and Helm installed"
 ### ───────────────────────────────────────────────────────────────────────────
 
 ### ─── 3. Hostname — Born2beRoot requires login+42 ───────────────────────────
-echo "dlesieur42" >/etc/hostname
-hostname dlesieur42 2>/dev/null || true
+echo "dlesieur42" > /etc/hostname
+hostname dlesieur42 2> /dev/null || true
 
 # Fix /etc/hosts — replace any old hostname or add the correct one
-if grep -q "127\.0\.1\.1" /etc/hosts 2>/dev/null; then
+if grep -q "127\.0\.1\.1" /etc/hosts 2> /dev/null; then
 	sed -i 's/127\.0\.1\.1.*/127.0.1.1\tdlesieur42/' /etc/hosts
 else
-	echo "127.0.1.1	dlesieur42" >>/etc/hosts
+	echo "127.0.1.1	dlesieur42" >> /etc/hosts
 fi
 # Also ensure localhost line exists
-grep -q "127\.0\.0\.1.*localhost" /etc/hosts ||
-	sed -i '1i 127.0.0.1\tlocalhost' /etc/hosts
+grep -q "127\.0\.0\.1.*localhost" /etc/hosts \
+	|| sed -i '1i 127.0.0.1\tlocalhost' /etc/hosts
 echo "[OK] Hostname set to dlesieur42"
 
 ### ─── 4. Groups & user ─────────────────────────────────────────────────────
-groupadd user42 2>/dev/null || true
+groupadd user42 2> /dev/null || true
 # Pre-create docker group NOW so dlesieur has it from the very first login.
 # Docker is installed later by first-boot-setup.sh (needs systemd + network),
 # but the GROUP must exist before the first SSH/VS Code session or the VS Code
 # server process inherits a stale group list without docker → "permission denied"
 # on /var/run/docker.sock. Docker's postinst will reuse this group.
-groupadd -f docker 2>/dev/null || true
+groupadd -f docker 2> /dev/null || true
 usermod -aG sudo,user42,docker dlesieur
 echo "[OK] User dlesieur in groups: sudo, user42, docker"
 
@@ -143,12 +143,12 @@ for setting in \
 	"LoginGraceTime 300"; do
 	key=$(echo "$setting" | awk '{print $1}')
 	sed -i "/^#*${key} /d" /etc/ssh/sshd_config
-	echo "$setting" >>/etc/ssh/sshd_config
+	echo "$setting" >> /etc/ssh/sshd_config
 done
 
 # Systemd: ensure sshd restarts automatically on failure + watchdog
 mkdir -p /etc/systemd/system/ssh.service.d
-cat >/etc/systemd/system/ssh.service.d/override.conf <<'EOF'
+cat > /etc/systemd/system/ssh.service.d/override.conf << 'EOF'
 [Service]
 Restart=always
 RestartSec=3
@@ -160,17 +160,17 @@ EOF
 # tcp_keepalive_time=60 → first probe after 60s idle (not default 7200!)
 # tcp_keepalive_intvl=15 → re-probe every 15s
 # tcp_keepalive_probes=5 → 5 failed probes = dead
-cat >/etc/sysctl.d/99-ssh-keepalive.conf <<'EOF'
+cat > /etc/sysctl.d/99-ssh-keepalive.conf << 'EOF'
 net.ipv4.tcp_keepalive_time=60
 net.ipv4.tcp_keepalive_intvl=15
 net.ipv4.tcp_keepalive_probes=5
 EOF
-sysctl --system >/dev/null 2>&1 || true
+sysctl --system > /dev/null 2>&1 || true
 
 # ── NAT keepalive service ──────────────────────────────────────────────────
 # Periodically ping the gateway to keep VirtualBox NAT engine's connection
 # tracking table active. This prevents NAT from silently dropping SSH mappings.
-cat >/usr/local/bin/nat-keepalive.sh <<'NKEOF'
+cat > /usr/local/bin/nat-keepalive.sh << 'NKEOF'
 #!/bin/bash
 # Keep VirtualBox NAT alive by pinging gateway every 30 seconds
 GW=$(ip route | awk '/default/ {print $3}' | head -1)
@@ -182,7 +182,7 @@ done
 NKEOF
 chmod +x /usr/local/bin/nat-keepalive.sh
 
-cat >/etc/systemd/system/nat-keepalive.service <<'NKSEOF'
+cat > /etc/systemd/system/nat-keepalive.service << 'NKSEOF'
 [Unit]
 Description=Keep VirtualBox NAT connection tracking alive
 After=network-online.target
@@ -197,12 +197,12 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 NKSEOF
-systemctl enable nat-keepalive 2>/dev/null || true
+systemctl enable nat-keepalive 2> /dev/null || true
 
 # ── SSHD Watchdog — monitors and auto-restarts sshd if it dies ──────────────
 # VS Code Remote SSH can cause sshd to become unresponsive. This watchdog
 # checks every 15 seconds and auto-restarts if sshd stops listening.
-cat >/usr/local/bin/sshd-watchdog.sh <<'WDEOF'
+cat > /usr/local/bin/sshd-watchdog.sh << 'WDEOF'
 #!/bin/bash
 LOG=/var/log/sshd-watchdog.log
 echo "$(date): watchdog started (pid=$$)" >> "$LOG"
@@ -226,7 +226,7 @@ done
 WDEOF
 chmod +x /usr/local/bin/sshd-watchdog.sh
 
-cat >/etc/systemd/system/sshd-watchdog.service <<'SWEOF'
+cat > /etc/systemd/system/sshd-watchdog.service << 'SWEOF'
 [Unit]
 Description=SSHD health watchdog with auto-restart
 After=ssh.service
@@ -241,7 +241,7 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 SWEOF
-systemctl enable sshd-watchdog 2>/dev/null || true
+systemctl enable sshd-watchdog 2> /dev/null || true
 
 systemctl enable ssh || true
 systemctl daemon-reload || true
@@ -260,7 +260,7 @@ chown dlesieur:dlesieur "$HOST_PUBKEY_DIR"
 # late_command copies it from /cdrom/host_ssh_pubkey to /target/tmp/host_ssh_pubkey
 # Since b2b-setup.sh runs inside in-target (chroot), the file is at /tmp/
 if [ -f /tmp/host_ssh_pubkey ]; then
-	cat /tmp/host_ssh_pubkey >>"$HOST_PUBKEY_DIR/authorized_keys"
+	cat /tmp/host_ssh_pubkey >> "$HOST_PUBKEY_DIR/authorized_keys"
 	chmod 600 "$HOST_PUBKEY_DIR/authorized_keys"
 	chown dlesieur:dlesieur "$HOST_PUBKEY_DIR/authorized_keys"
 	echo "[OK] Host SSH public key installed for dlesieur"
@@ -270,7 +270,7 @@ fi
 
 # Ensure PubkeyAuthentication is enabled in sshd_config
 sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
-grep -q '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >>/etc/ssh/sshd_config
+grep -q '^PubkeyAuthentication' /etc/ssh/sshd_config || echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
 
 ### ─── 6. UFW — only port 4242 + web ports + dev ports ───────────────────────
 ufw default deny incoming
@@ -287,7 +287,7 @@ echo "[OK] UFW firewall active"
 mkdir -p /var/log/sudo
 chmod 700 /var/log/sudo
 
-cat >/etc/sudoers.d/sudo_config <<'SUDOEOF'
+cat > /etc/sudoers.d/sudo_config << 'SUDOEOF'
 Defaults	passwd_tries=3
 Defaults	badpass_message="Wrong password. Access denied!"
 Defaults	logfile="/var/log/sudo/sudo.log"
@@ -316,10 +316,10 @@ for setting in \
 	"difok = 7" \
 	"enforce_for_root"; do
 	key=$(echo "$setting" | cut -d= -f1 | xargs)
-	if grep -q "^#* *${key}" /etc/security/pwquality.conf 2>/dev/null; then
+	if grep -q "^#* *${key}" /etc/security/pwquality.conf 2> /dev/null; then
 		sed -i "s/^#* *${key}.*/${setting}/" /etc/security/pwquality.conf
 	else
-		echo "$setting" >>/etc/security/pwquality.conf
+		echo "$setting" >> /etc/security/pwquality.conf
 	fi
 done
 echo "[OK] Password policy set"
@@ -330,7 +330,7 @@ $APT tmux || true
 
 # tmux config for user dlesieur — sane defaults for dev work
 TMUX_CONF="/home/dlesieur/.tmux.conf"
-cat >"$TMUX_CONF" <<'TMUXEOF'
+cat > "$TMUX_CONF" << 'TMUXEOF'
 # ── Born2beRoot tmux config ──────────────────────────────────
 # Reload: tmux source ~/.tmux.conf
 
@@ -395,8 +395,8 @@ chown dlesieur:dlesieur "$TMUX_CONF"
 # Auto-attach to tmux on interactive SSH login (for user dlesieur)
 # This goes in .bashrc — only activates on interactive login, NOT in scripts
 BASHRC="/home/dlesieur/.bashrc"
-if ! grep -q 'TMUX_AUTO_ATTACH' "$BASHRC" 2>/dev/null; then
-	cat >>"$BASHRC" <<'BASHEOF'
+if ! grep -q 'TMUX_AUTO_ATTACH' "$BASHRC" 2> /dev/null; then
+	cat >> "$BASHRC" << 'BASHEOF'
 
 # ── tmux auto-attach (SSH sessions survive disconnects) ──────
 # Only in interactive SSH sessions, not in scripts or VS Code integrated terminal
@@ -420,23 +420,23 @@ echo "[OK] Git configured"
 
 ### ─── 11. Monitoring script ────────────────────────────────────────────────
 # Already copied to /usr/local/bin/monitoring.sh by late_command
-chmod +x /usr/local/bin/monitoring.sh 2>/dev/null || true
+chmod +x /usr/local/bin/monitoring.sh 2> /dev/null || true
 
 # Crontab: every 10 minutes, broadcast to all terminals
-echo "*/10 * * * * root /usr/local/bin/monitoring.sh" >>/etc/crontab
+echo "*/10 * * * * root /usr/local/bin/monitoring.sh" >> /etc/crontab
 echo "[OK] Monitoring cron set"
 
 ### ─── 12. Lighttpd + PHP-FPM + WordPress routing ────────────────────────────
 # Detect installed PHP-FPM version and socket path
-PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2>/dev/null || echo "8.2")
+PHP_VER=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;' 2> /dev/null || echo "8.2")
 PHP_SOCK="/run/php/php${PHP_VER}-fpm.sock"
 
 # Enable mod_fastcgi (base module)
-lighty-enable-mod fastcgi </dev/null 2>/dev/null || true
+lighty-enable-mod fastcgi < /dev/null 2> /dev/null || true
 
 # DISABLE the stock fastcgi-php config — it uses php-cgi, NOT php-fpm,
 # and creates a conflicting fastcgi.server entry for ".php".
-lighty-disable-mod fastcgi-php </dev/null 2>/dev/null || true
+lighty-disable-mod fastcgi-php < /dev/null 2> /dev/null || true
 rm -f /etc/lighttpd/conf-enabled/15-fastcgi-php.conf
 
 # Also remove the default "unconfigured" placeholder page
@@ -444,7 +444,7 @@ rm -f /etc/lighttpd/conf-enabled/99-unconfigured.conf
 
 # Create a single, clean WordPress + PHP-FPM config
 # This is the ONLY file that defines how PHP is served.
-cat >/etc/lighttpd/conf-available/99-wordpress.conf <<WPLIGHT
+cat > /etc/lighttpd/conf-available/99-wordpress.conf << WPLIGHT
 # ── WordPress + PHP-FPM on Lighttpd ──────────────────────────
 # Load required modules (mod_fastcgi is loaded by 10-fastcgi.conf)
 server.modules += ( "mod_rewrite" )
@@ -479,11 +479,11 @@ WPLIGHT
 
 # Enable the config (create symlink)
 ln -sf /etc/lighttpd/conf-available/99-wordpress.conf \
-	/etc/lighttpd/conf-enabled/99-wordpress.conf 2>/dev/null || true
+	/etc/lighttpd/conf-enabled/99-wordpress.conf 2> /dev/null || true
 
 # Ensure lighttpd listens on port 80
-if ! grep -q 'server.port' /etc/lighttpd/lighttpd.conf 2>/dev/null; then
-	echo 'server.port = 80' >>/etc/lighttpd/lighttpd.conf
+if ! grep -q 'server.port' /etc/lighttpd/lighttpd.conf 2> /dev/null; then
+	echo 'server.port = 80' >> /etc/lighttpd/lighttpd.conf
 fi
 echo "[OK] Lighttpd + PHP-FPM + WordPress routing configured"
 
@@ -492,7 +492,7 @@ systemctl enable apparmor || true
 
 # Create enforcement-ready AppArmor profile for PHP-FPM
 mkdir -p /etc/apparmor.d
-cat >/etc/apparmor.d/local/usr.sbin.php-fpm 2>/dev/null <<'AAEOF' || true
+cat > /etc/apparmor.d/local/usr.sbin.php-fpm 2> /dev/null << 'AAEOF' || true
 # Allow PHP-FPM to serve WordPress
 /var/www/html/wordpress/** r,
 /var/www/html/wordpress/wp-content/uploads/** rw,
@@ -504,31 +504,31 @@ AAEOF
 # Enforce AppArmor profiles if they exist
 for profile in usr.sbin.php-fpm${PHP_VER} usr.sbin.lighttpd; do
 	if [ -f "/etc/apparmor.d/${profile}" ]; then
-		aa-enforce "/etc/apparmor.d/${profile}" 2>/dev/null || true
+		aa-enforce "/etc/apparmor.d/${profile}" 2> /dev/null || true
 	fi
 done
 echo "[OK] AppArmor enabled + WordPress profiles configured"
 
 ### ─── 14. Enable all services (NO restart — no systemd in chroot) ──────────
 for svc in lighttpd mariadb haveged cron ssh nat-keepalive sshd-watchdog; do
-	systemctl enable "$svc" 2>/dev/null || true
+	systemctl enable "$svc" 2> /dev/null || true
 done
 for f in /lib/systemd/system/php*-fpm.service; do
-	[ -f "$f" ] && systemctl enable "$(basename "$f")" 2>/dev/null || true
+	[ -f "$f" ] && systemctl enable "$(basename "$f")" 2> /dev/null || true
 done
 # Disable conflict docker services
-systemctl disable postgresql 2>/dev/null || true
-systemctl disable redis-server 2>/dev/null || true
+systemctl disable postgresql 2> /dev/null || true
+systemctl disable redis-server 2> /dev/null || true
 echo "[OK] Services enabled"
 
 ### ─── 15. First-boot script (Docker + WordPress) ───────────────────────────
 # Already copied to /root/first-boot-setup.sh by late_command
-chmod +x /root/first-boot-setup.sh 2>/dev/null || true
-echo "@reboot root /bin/bash /root/first-boot-setup.sh" >>/etc/crontab
+chmod +x /root/first-boot-setup.sh 2> /dev/null || true
+echo "@reboot root /bin/bash /root/first-boot-setup.sh" >> /etc/crontab
 echo "[OK] First-boot hook registered"
 
 ### ─── 16. MOTD ─────────────────────────────────────────────────────────────
-cat >/etc/motd <<'MOTDEOF'
+cat > /etc/motd << 'MOTDEOF'
 
   ╔═══════════════════════════════════════════════════════╗
   ║            BORN2BEROOT SECURE SYSTEM                  ║

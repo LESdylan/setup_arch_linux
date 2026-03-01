@@ -26,12 +26,12 @@ backup_lvm_config() {
 
 	# Backup current state using various commands
 	echo -e "${CYAN}Saving current LVM state details...${NC}"
-	sudo pvs -v >"$backup_path/pvs.txt"
-	sudo vgs -v >"$backup_path/vgs.txt"
-	sudo lvs -v >"$backup_path/lvs.txt"
-	sudo pvdisplay >"$backup_path/pvdisplay.txt"
-	sudo vgdisplay >"$backup_path/vgdisplay.txt"
-	sudo lvdisplay >"$backup_path/lvdisplay.txt"
+	sudo pvs -v > "$backup_path/pvs.txt"
+	sudo vgs -v > "$backup_path/vgs.txt"
+	sudo lvs -v > "$backup_path/lvs.txt"
+	sudo pvdisplay > "$backup_path/pvdisplay.txt"
+	sudo vgdisplay > "$backup_path/vgdisplay.txt"
+	sudo lvdisplay > "$backup_path/lvdisplay.txt"
 
 	# Backup critical system files
 	echo -e "${CYAN}Backing up system configuration files...${NC}"
@@ -43,7 +43,7 @@ backup_lvm_config() {
 
 	# Create a restore script specifically for this backup
 	echo -e "${CYAN}Creating restoration script...${NC}"
-	cat >"$backup_path/restore.sh" <<EOF
+	cat > "$backup_path/restore.sh" << EOF
 #!/bin/bash
 # LVM Configuration Restore Script - Created on $(date)
 # This will restore the LVM configuration to how it was when this backup was made
@@ -57,11 +57,11 @@ EOF
 	# Generate VG restore commands for each VG
 	for vg_conf in "$backup_path"/vg_*.conf; do
 		vg_name=$(basename "$vg_conf" | sed 's/vg_\(.*\)\.conf/\1/')
-		echo "sudo vgcfgrestore -f \"$vg_conf\" $vg_name" >>"$backup_path/restore.sh"
+		echo "sudo vgcfgrestore -f \"$vg_conf\" $vg_name" >> "$backup_path/restore.sh"
 	done
 
 	# Add fstab restore
-	cat >>"$backup_path/restore.sh" <<EOF
+	cat >> "$backup_path/restore.sh" << EOF
 
 # Restore system configuration files
 echo "Restoring system configuration files..."
@@ -71,11 +71,11 @@ EOF
 
 	# Add crypttab restore if it exists
 	if [ -f /etc/crypttab ]; then
-		echo "sudo cp \"$backup_path/crypttab.backup\" /etc/crypttab" >>"$backup_path/restore.sh"
+		echo "sudo cp \"$backup_path/crypttab.backup\" /etc/crypttab" >> "$backup_path/restore.sh"
 	fi
 
 	# Add final steps
-	cat >>"$backup_path/restore.sh" <<EOF
+	cat >> "$backup_path/restore.sh" << EOF
 
 # Update initramfs and grub
 echo "Updating initramfs and bootloader..."
@@ -192,7 +192,7 @@ extend_logical_volume() {
 
 	# Basic validation
 	echo -e "${YELLOW}Performing pre-flight checks...${NC}"
-	if ! sudo lvdisplay /dev/${vg_name}/${lv_name} >/dev/null 2>&1; then
+	if ! sudo lvdisplay /dev/${vg_name}/${lv_name} > /dev/null 2>&1; then
 		echo -e "${RED}ERROR: Logical volume /dev/${vg_name}/${lv_name} not found!${NC}"
 		echo -e "${CYAN}Learning note: Verify your LV name with 'sudo lvs' command${NC}"
 		return 1
@@ -219,19 +219,19 @@ extend_logical_volume() {
 		echo -e "${YELLOW}Resizing filesystem to use new space...${NC}"
 		echo -e "${CYAN}(This command makes the filesystem aware of the new available space)${NC}"
 		case $fs_type in
-		ext4 | ext3 | ext2)
-			echo -e "${CYAN}Learning note: ext4/3/2 filesystems use resize2fs command${NC}"
-			sudo resize2fs /dev/${vg_name}/${lv_name}
-			;;
-		xfs)
-			echo -e "${CYAN}Learning note: XFS filesystems use xfs_growfs command${NC}"
-			sudo xfs_growfs /dev/${vg_name}/${lv_name}
-			;;
-		*)
-			echo -e "${RED}Unsupported filesystem type. Manual resize required.${NC}"
-			echo -e "${CYAN}Learning note: Each filesystem type uses its own resize command${NC}"
-			return 1
-			;;
+			ext4 | ext3 | ext2)
+				echo -e "${CYAN}Learning note: ext4/3/2 filesystems use resize2fs command${NC}"
+				sudo resize2fs /dev/${vg_name}/${lv_name}
+				;;
+			xfs)
+				echo -e "${CYAN}Learning note: XFS filesystems use xfs_growfs command${NC}"
+				sudo xfs_growfs /dev/${vg_name}/${lv_name}
+				;;
+			*)
+				echo -e "${RED}Unsupported filesystem type. Manual resize required.${NC}"
+				echo -e "${CYAN}Learning note: Each filesystem type uses its own resize command${NC}"
+				return 1
+				;;
 		esac
 
 		echo -e "${GREEN}Filesystem resized successfully!${NC}"
@@ -279,7 +279,7 @@ rename_volume_group() {
 
 	# Create a recovery point
 	echo -e "${YELLOW}Creating a quick recovery script in case of problems...${NC}"
-	cat >~/vg_rename_recovery.sh <<EOF
+	cat > ~/vg_rename_recovery.sh << EOF
 #!/bin/bash
 # Recovery script for renaming VG back to original name
 sudo vgrename ${new_vg_name} ${old_vg_name}
@@ -339,14 +339,14 @@ create_logical_volume() {
 	echo -e "${GREEN}You can restore to this point using Backup ID: $backup_id${NC}"
 
 	# Check if VG exists
-	if ! sudo vgdisplay ${vg_name} >/dev/null 2>&1; then
+	if ! sudo vgdisplay ${vg_name} > /dev/null 2>&1; then
 		echo -e "${RED}ERROR: Volume group ${vg_name} not found!${NC}"
 		echo -e "${CYAN}Learning note: Check available VGs using 'sudo vgs' command${NC}"
 		return 1
 	fi
 
 	# Check if LV already exists
-	if sudo lvdisplay /dev/${vg_name}/${lv_name} >/dev/null 2>&1; then
+	if sudo lvdisplay /dev/${vg_name}/${lv_name} > /dev/null 2>&1; then
 		echo -e "${RED}ERROR: Logical volume ${lv_name} already exists!${NC}"
 		echo -e "${CYAN}Learning note: LV names must be unique within a VG${NC}"
 		return 1
@@ -468,50 +468,50 @@ show_menu() {
 	read -p "Select an option (1-8): " choice
 
 	case $choice in
-	1)
-		show_lvm_status
-		;;
-	2)
-		echo ""
-		read -p "Enter volume group name (e.g., ubuntu-vg): " vg_name
-		read -p "Enter logical volume name (e.g., ubuntu-lv): " lv_name
-		read -p "Enter size to extend (e.g., 10G, 200G): " extension
-		extend_logical_volume "$vg_name" "$lv_name" "$extension"
-		;;
-	3)
-		echo ""
-		echo -e "${RED}WARNING: Renaming system volume groups can break your system!${NC}"
-		read -p "Enter current volume group name: " old_vg
-		read -p "Enter new volume group name: " new_vg
-		rename_volume_group "$old_vg" "$new_vg"
-		;;
-	4)
-		echo ""
-		read -p "Enter volume group name: " vg_name
-		read -p "Enter new logical volume name: " lv_name
-		read -p "Enter size (e.g., 10G, 200G): " size
-		read -p "Enter mount point (leave empty to skip mounting): " mount_point
-		create_logical_volume "$vg_name" "$lv_name" "$size" "$mount_point"
-		;;
-	5)
-		echo ""
-		echo -e "${YELLOW}Creating full LVM configuration backup...${NC}"
-		backup_lvm_config
-		;;
-	6)
-		echo ""
-		restore_lvm_config
-		;;
-	7)
-		show_lvm_tutorial
-		;;
-	8)
-		echo -e "${GREEN}Exiting. Have a great day!${NC}"
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		;;
+		1)
+			show_lvm_status
+			;;
+		2)
+			echo ""
+			read -p "Enter volume group name (e.g., ubuntu-vg): " vg_name
+			read -p "Enter logical volume name (e.g., ubuntu-lv): " lv_name
+			read -p "Enter size to extend (e.g., 10G, 200G): " extension
+			extend_logical_volume "$vg_name" "$lv_name" "$extension"
+			;;
+		3)
+			echo ""
+			echo -e "${RED}WARNING: Renaming system volume groups can break your system!${NC}"
+			read -p "Enter current volume group name: " old_vg
+			read -p "Enter new volume group name: " new_vg
+			rename_volume_group "$old_vg" "$new_vg"
+			;;
+		4)
+			echo ""
+			read -p "Enter volume group name: " vg_name
+			read -p "Enter new logical volume name: " lv_name
+			read -p "Enter size (e.g., 10G, 200G): " size
+			read -p "Enter mount point (leave empty to skip mounting): " mount_point
+			create_logical_volume "$vg_name" "$lv_name" "$size" "$mount_point"
+			;;
+		5)
+			echo ""
+			echo -e "${YELLOW}Creating full LVM configuration backup...${NC}"
+			backup_lvm_config
+			;;
+		6)
+			echo ""
+			restore_lvm_config
+			;;
+		7)
+			show_lvm_tutorial
+			;;
+		8)
+			echo -e "${GREEN}Exiting. Have a great day!${NC}"
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			;;
 	esac
 
 	echo ""

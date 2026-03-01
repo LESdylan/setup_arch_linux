@@ -22,7 +22,7 @@ echo -e "${YELLOW}Checking for FTP client tools...${NC}"
 FTP_TOOLS_FOUND=false
 
 # Check for lftp
-if command -v lftp &>/dev/null; then
+if command -v lftp &> /dev/null; then
 	echo -e "${GREEN}✓ lftp is installed${NC} (Version: $(lftp --version | head -n 1))"
 	FTP_TOOLS_FOUND=true
 else
@@ -30,7 +30,7 @@ else
 fi
 
 # Check for ftp command
-if command -v ftp &>/dev/null; then
+if command -v ftp &> /dev/null; then
 	echo -e "${GREEN}✓ ftp command is available${NC}"
 	FTP_TOOLS_FOUND=true
 else
@@ -38,7 +38,7 @@ else
 fi
 
 # Check for curl with FTP support
-if command -v curl &>/dev/null && curl -V | grep -q "ftp"; then
+if command -v curl &> /dev/null && curl -V | grep -q "ftp"; then
 	echo -e "${GREEN}✓ curl with FTP support is installed${NC} (Version: $(curl --version | head -n 1))"
 	FTP_TOOLS_FOUND=true
 else
@@ -46,7 +46,7 @@ else
 fi
 
 # Check for FileZilla
-if command -v filezilla &>/dev/null || [ -d "/Applications/FileZilla.app" ] || [ -f "/c/Program Files/FileZilla FTP Client/filezilla.exe" ]; then
+if command -v filezilla &> /dev/null || [ -d "/Applications/FileZilla.app" ] || [ -f "/c/Program Files/FileZilla FTP Client/filezilla.exe" ]; then
 	echo -e "${GREEN}✓ FileZilla appears to be installed${NC}"
 	FTP_TOOLS_FOUND=true
 else
@@ -77,7 +77,7 @@ if [ "$TEST_CONNECTION" = "y" ] || [ "$TEST_CONNECTION" = "Y" ]; then
 	echo -e "\n${YELLOW}Testing connection to $FTP_SERVER...${NC}"
 
 	# Use lftp if available, otherwise fallback to ftp
-	if command -v lftp &>/dev/null; then
+	if command -v lftp &> /dev/null; then
 		RESULT=$(lftp -u "$FTP_USER","$FTP_PASS" -p "$FTP_PORT" "$FTP_SERVER" -e "ls; quit" 2>&1)
 		if echo "$RESULT" | grep -q "Access failed\|Login failed\|Unknown host\|Connection refused"; then
 			echo -e "${RED}Connection failed: $(echo "$RESULT" | grep -m 1 "Access failed\|Login failed\|Unknown host\|Connection refused")${NC}"
@@ -89,7 +89,7 @@ if [ "$TEST_CONNECTION" = "y" ] || [ "$TEST_CONNECTION" = "Y" ]; then
 
 			# Try to determine WordPress path
 			echo -e "\n${YELLOW}Checking for WordPress installation...${NC}"
-			WP_PATH=$(lftp -u "$FTP_USER","$FTP_PASS" -p "$FTP_PORT" "$FTP_SERVER" -e "find -name wp-content; quit" 2>/dev/null)
+			WP_PATH=$(lftp -u "$FTP_USER","$FTP_PASS" -p "$FTP_PORT" "$FTP_SERVER" -e "find -name wp-content; quit" 2> /dev/null)
 
 			if [ -n "$WP_PATH" ]; then
 				echo -e "${GREEN}WordPress installation found!${NC}"

@@ -28,13 +28,13 @@ if [[ "${EUID}" -eq 0 ]]; then
 fi
 
 # Check if Node.js toolchain is already installed
-if command -v node &>/dev/null && command -v npm &>/dev/null && command -v pnpm &>/dev/null; then
+if command -v node &> /dev/null && command -v npm &> /dev/null && command -v pnpm &> /dev/null; then
 	log "Node.js, npm, and pnpm are already installed"
 	exit 0
 fi
 
 # Install nvm + Node.js
-command -v curl &>/dev/null || error "curl is required"
+command -v curl &> /dev/null || error "curl is required"
 
 log "Installing nvm..."
 curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
@@ -49,7 +49,7 @@ nvm alias default 22
 nvm use 22
 
 # Check if Node.js and NPM were installed successfully
-if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
+if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
 	error "Node.js or NPM installation failed"
 fi
 
@@ -59,7 +59,7 @@ corepack enable
 corepack prepare pnpm@latest --activate
 
 # Check if PNPM was installed successfully
-if ! command -v pnpm &>/dev/null; then
+if ! command -v pnpm &> /dev/null; then
 	error "PNPM installation failed"
 fi
 

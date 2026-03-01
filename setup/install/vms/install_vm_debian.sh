@@ -6,7 +6,7 @@ set -e # Exit on any error
 SCRIPT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
 cd "$SCRIPT_DIR"
 
-PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
+PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2> /dev/null | head -n1)
 if [ -z "$PRESEED_ISO" ]; then
 	echo "Error: No preseeded ISO found in $SCRIPT_DIR"
 	echo "Run 'make gen_iso' first."
@@ -33,18 +33,18 @@ auto_size_vm() {
 	# Detect host RAM (MB)
 	if [ -f /proc/meminfo ]; then
 		host_ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
-	elif command -v sysctl >/dev/null 2>&1; then
-		host_ram_mb=$(($(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024))
+	elif command -v sysctl > /dev/null 2>&1; then
+		host_ram_mb=$(($(sysctl -n hw.memsize 2> /dev/null || echo 0) / 1024 / 1024))
 	fi
 	: "${host_ram_mb:=8192}"
 
 	# Detect host CPU cores
-	if command -v nproc >/dev/null 2>&1; then
+	if command -v nproc > /dev/null 2>&1; then
 		host_cpus=$(nproc)
 	elif [ -f /proc/cpuinfo ]; then
 		host_cpus=$(grep -c ^processor /proc/cpuinfo)
-	elif command -v sysctl >/dev/null 2>&1; then
-		host_cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	elif command -v sysctl > /dev/null 2>&1; then
+		host_cpus=$(sysctl -n hw.ncpu 2> /dev/null || echo 4)
 	fi
 	: "${host_cpus:=4}"
 
@@ -86,7 +86,7 @@ BACKEND_PORT=3000
 # Check if a host port is available (no sudo required)
 is_port_free() {
 	local port="$1"
-	if (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
+	if (ss -tln 2> /dev/null || netstat -tln 2> /dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
 		return 1 # port is taken
 	fi
 	return 0 # port is free

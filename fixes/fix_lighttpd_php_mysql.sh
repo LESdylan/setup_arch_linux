@@ -47,7 +47,7 @@ if [ -d "/etc/php/8.2/fpm" ]; then
 
 	# Create mysqli.ini in the conf.d directory
 	mkdir -p "/etc/php/8.2/fpm/conf.d"
-	echo "extension=mysqli.so" >"/etc/php/8.2/fpm/conf.d/20-mysqli.ini"
+	echo "extension=mysqli.so" > "/etc/php/8.2/fpm/conf.d/20-mysqli.ini"
 
 	# Make sure PHP-FPM is running
 	systemctl enable php8.2-fpm
@@ -57,14 +57,14 @@ else
 	echo "This is unusual. Searching for PHP configuration directories..."
 
 	# Try to find PHP directories
-	PHP_DIRS=$(find /etc -name "php*.ini" 2>/dev/null | xargs dirname 2>/dev/null)
+	PHP_DIRS=$(find /etc -name "php*.ini" 2> /dev/null | xargs dirname 2> /dev/null)
 
 	if [ -n "$PHP_DIRS" ]; then
 		echo "Found PHP configuration in: $PHP_DIRS"
 		for dir in $PHP_DIRS; do
 			echo "Adding mysqli extension to $dir/conf.d/20-mysqli.ini"
 			mkdir -p "$dir/conf.d"
-			echo "extension=mysqli.so" >"$dir/conf.d/20-mysqli.ini"
+			echo "extension=mysqli.so" > "$dir/conf.d/20-mysqli.ini"
 		done
 	fi
 fi
@@ -76,7 +76,7 @@ echo "Step 4: Setting up Lighttpd FastCGI configuration for PHP-FPM..."
 FASTCGI_CONF="/etc/lighttpd/conf-available/10-fastcgi.conf"
 if [ ! -f "$FASTCGI_CONF" ]; then
 	echo "Creating $FASTCGI_CONF..."
-	cat >"$FASTCGI_CONF" <<'EOF'
+	cat > "$FASTCGI_CONF" << 'EOF'
 # /usr/share/doc/lighttpd/fastcgi.txt.gz
 # http://redmine.lighttpd.net/projects/lighttpd/wiki/Docs:ConfigurationOptions#mod_fastcgi-fastcgi
 
@@ -86,7 +86,7 @@ fi
 
 # Create PHP-FPM configuration
 PHP_FPM_CONF="/etc/lighttpd/conf-available/15-fastcgi-php-fpm.conf"
-cat >"$PHP_FPM_CONF" <<'EOF'
+cat > "$PHP_FPM_CONF" << 'EOF'
 # -*- depends: fastcgi -*-
 
 # Enable PHP-FPM support for .php files
@@ -111,16 +111,16 @@ if [ -d "/etc/php/8.2/fpm/pool.d" ]; then
 		# Check if mysqli is already in the php_admin_value
 		if ! grep -q "php_admin_value\[extension\] = mysqli.so" "$POOL_CONF"; then
 			echo "Adding mysqli to PHP-FPM pool configuration..."
-			echo "" >>"$POOL_CONF"
-			echo "; Force load mysqli extension" >>"$POOL_CONF"
-			echo "php_admin_value[extension] = mysqli.so" >>"$POOL_CONF"
+			echo "" >> "$POOL_CONF"
+			echo "; Force load mysqli extension" >> "$POOL_CONF"
+			echo "php_admin_value[extension] = mysqli.so" >> "$POOL_CONF"
 		fi
 	fi
 fi
 
 # Step 6: Create test file
 echo "Step 6: Creating PHP test file..."
-cat >"/var/www/html/test-mysqli.php" <<'EOF'
+cat > "/var/www/html/test-mysqli.php" << 'EOF'
 <?php
 echo "<h1>PHP and mysqli Test</h1>";
 echo "<p>PHP Version: " . phpversion() . "</p>";

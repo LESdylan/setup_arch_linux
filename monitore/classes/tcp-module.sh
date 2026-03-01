@@ -6,8 +6,8 @@ tcp_module() {
 
 	# Method 1: Using netstat
 	get_tcp_netstat() {
-		if command -v netstat &>/dev/null; then
-			local tcp_count=$(netstat -an 2>/dev/null | grep ESTABLISHED | wc -l)
+		if command -v netstat &> /dev/null; then
+			local tcp_count=$(netstat -an 2> /dev/null | grep ESTABLISHED | wc -l)
 			if [ -n "$tcp_count" ]; then
 				echo "$tcp_count"
 			else
@@ -20,8 +20,8 @@ tcp_module() {
 
 	# Method 2: Using ss command
 	get_tcp_ss() {
-		if command -v ss &>/dev/null; then
-			local tcp_count=$(ss -t state established 2>/dev/null | grep -v "State" | wc -l)
+		if command -v ss &> /dev/null; then
+			local tcp_count=$(ss -t state established 2> /dev/null | grep -v "State" | wc -l)
 			if [ -n "$tcp_count" ]; then
 				echo "$tcp_count"
 			else
@@ -34,8 +34,8 @@ tcp_module() {
 
 	# Method 3: Using lsof command
 	get_tcp_lsof() {
-		if command -v lsof &>/dev/null; then
-			local tcp_count=$(lsof -i TCP 2>/dev/null | grep ESTABLISHED | wc -l)
+		if command -v lsof &> /dev/null; then
+			local tcp_count=$(lsof -i TCP 2> /dev/null | grep ESTABLISHED | wc -l)
 			if [ -n "$tcp_count" ]; then
 				echo "$tcp_count"
 			else
@@ -49,7 +49,7 @@ tcp_module() {
 	# Method 4: Reading from /proc/net/tcp
 	get_tcp_proc() {
 		if [ -f /proc/net/tcp ]; then
-			local tcp_count=$(cat /proc/net/tcp 2>/dev/null | grep " 01 " | wc -l)
+			local tcp_count=$(cat /proc/net/tcp 2> /dev/null | grep " 01 " | wc -l)
 			if [ -n "$tcp_count" ]; then
 				echo "$tcp_count"
 			else

@@ -18,12 +18,12 @@ section() {
 
 # Function to check if a command exists
 command_exists() {
-	command -v "$1" >/dev/null 2>&1
+	command -v "$1" > /dev/null 2>&1
 }
 
 # Function to check if a PHP extension is loaded
 php_ext_loaded() {
-	php -m | grep -i "$1" >/dev/null 2>&1
+	php -m | grep -i "$1" > /dev/null 2>&1
 }
 
 # Start diagnostic
@@ -126,11 +126,11 @@ if [ -d /etc/lighttpd ]; then
 
 	echo -e "\n${YELLOW}Checking for PHP configurations in conf-enabled:${NC}"
 	if [ -d /etc/lighttpd/conf-enabled ]; then
-		grep -i "php\|fastcgi" /etc/lighttpd/conf-enabled/* 2>/dev/null
+		grep -i "php\|fastcgi" /etc/lighttpd/conf-enabled/* 2> /dev/null
 	fi
 
 	echo -e "\n${YELLOW}Looking for PHP-specific config files:${NC}"
-	find /etc/lighttpd -name "*php*" -type f 2>/dev/null
+	find /etc/lighttpd -name "*php*" -type f 2> /dev/null
 else
 	echo -e "${RED}Lighttpd configuration directory not found${NC}"
 fi
@@ -162,7 +162,7 @@ section "PHP-MYSQL CONNECTION TEST"
 echo -e "${YELLOW}Creating a test PHP script to verify MySQL connectivity:${NC}"
 TEST_SCRIPT="/tmp/mysql_test_$$.php"
 
-cat >"$TEST_SCRIPT" <<'EOF'
+cat > "$TEST_SCRIPT" << 'EOF'
 <?php
 echo "PHP Version: " . phpversion() . "\n";
 

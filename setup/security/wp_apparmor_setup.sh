@@ -41,7 +41,7 @@ chmod 644 /var/log/php8.2-fpm.log /var/log/lighttpd/*.log
 
 # Step 4: Create temporary WordPress config test file
 echo "Step 4: Creating WordPress AppArmor test file..."
-cat >/var/www/html/apparmor-test.php <<'EOF'
+cat > /var/www/html/apparmor-test.php << 'EOF'
 <?php
 echo "<h1>WordPress AppArmor Test Page</h1>";
 echo "<p>This page tests WordPress functionality under AppArmor protection.</p>";
@@ -63,7 +63,7 @@ chmod 644 /var/www/html/apparmor-test.php
 
 # Step 5: Create PHP-FPM AppArmor profile
 echo "Step 5: Creating PHP-FPM AppArmor profile..."
-cat >/etc/apparmor.d/usr.sbin.php-fpm8.2 <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.php-fpm8.2 << 'EOF'
 #include <tunables/global>
 
 profile php-fpm8.2 /usr/sbin/php-fpm8.2 flags=(attach_disconnected) {
@@ -125,7 +125,7 @@ EOF
 
 # Step 6: Create Lighttpd AppArmor profile
 echo "Step 6: Creating Lighttpd AppArmor profile..."
-cat >/etc/apparmor.d/usr.sbin.lighttpd <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.lighttpd << 'EOF'
 #include <tunables/global>
 
 profile lighttpd /usr/sbin/lighttpd flags=(attach_disconnected) {
@@ -179,7 +179,7 @@ EOF
 
 # Step 7: Create MariaDB AppArmor profile
 echo "Step 7: Creating MariaDB AppArmor profile..."
-cat >/etc/apparmor.d/usr.sbin.mysqld <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.mysqld << 'EOF'
 #include <tunables/global>
 
 profile mysqld /usr/sbin/mysqld flags=(attach_disconnected) {

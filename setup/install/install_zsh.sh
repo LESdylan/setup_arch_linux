@@ -22,13 +22,13 @@ change_default_shell() {
 }
 
 # Check if zsh is installed
-if command -v zsh >/dev/null 2>&1; then
+if command -v zsh > /dev/null 2>&1; then
 	echo "zsh is already installed."
 else
 	echo "Installing zsh..."
 	sudo apt update && sudo apt install zsh -y
 
-	if ! command -v zsh >/dev/null 2>&1; then
+	if ! command -v zsh > /dev/null 2>&1; then
 		echo "Failed to install zsh. Exiting."
 		exit 1
 	fi

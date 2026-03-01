@@ -32,7 +32,7 @@ tcp_count=$(ss -ta | grep ESTAB | wc -l)
 user_count=$(who | wc -l)
 ip=$(hostname -I | awk '{print $1}')
 mac=$(ip link show | grep "link/ether" | awk '{print $2}' | head -1)
-sudo_count=$(grep "COMMAND" /var/log/sudo/sudo.log 2>/dev/null | wc -l)
+sudo_count=$(grep "COMMAND" /var/log/sudo/sudo.log 2> /dev/null | wc -l)
 
 # Get terminal width for centered text
 TERM_WIDTH=$(tput cols)

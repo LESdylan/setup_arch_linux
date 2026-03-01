@@ -95,22 +95,22 @@ crow "${BLD}${WHT}Environment Status Dashboard${RST}"
 mid
 
 # ── VirtualBox ──
-if command -v VBoxManage >/dev/null 2>&1; then
-	VBOX_VER=$(VBoxManage --version 2>/dev/null)
+if command -v VBoxManage > /dev/null 2>&1; then
+	VBOX_VER=$(VBoxManage --version 2> /dev/null)
 	status_row "${GRN}${BLD}✓${RST}" "VirtualBox ......" "${GRN}v${VBOX_VER}${RST}"
 else
 	status_row "${RED}${BLD}✗${RST}" "VirtualBox ......" "${RED}not installed${RST}"
 fi
 
 # ── xorriso ──
-if command -v xorriso >/dev/null 2>&1; then
+if command -v xorriso > /dev/null 2>&1; then
 	status_row "${GRN}${BLD}✓${RST}" "xorriso ........." "${GRN}installed${RST}"
 else
 	status_row "${RED}${BLD}✗${RST}" "xorriso ........." "${RED}not installed${RST}"
 fi
 
 # ── curl ──
-if command -v curl >/dev/null 2>&1; then
+if command -v curl > /dev/null 2>&1; then
 	status_row "${GRN}${BLD}✓${RST}" "curl ............" "${GRN}installed${RST}"
 else
 	status_row "${RED}${BLD}✗${RST}" "curl ............" "${RED}not installed${RST}"
@@ -126,7 +126,7 @@ fi
 mid
 
 # ── Debian base ISO ──
-BASE=$(ls -1 debian-*-amd64-netinst.iso 2>/dev/null | head -n1)
+BASE=$(ls -1 debian-*-amd64-netinst.iso 2> /dev/null | head -n1)
 if [ -n "$BASE" ]; then
 	status_row "${GRN}${BLD}✓${RST}" "Base ISO ........" "${GRN}${BASE}${RST}"
 else
@@ -134,7 +134,7 @@ else
 fi
 
 # ── Preseeded ISO ──
-PISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
+PISO=$(ls -1 debian-*-amd64-*preseed.iso 2> /dev/null | head -n1)
 if [ -n "$PISO" ]; then
 	status_row "${GRN}${BLD}✓${RST}" "Preseed ISO ....." "${GRN}${PISO}${RST}"
 else
@@ -144,9 +144,9 @@ fi
 mid
 
 # ── VM ──
-if VBoxManage showvminfo "$VM_NAME" >/dev/null 2>&1; then
-	STATE=$(VBoxManage showvminfo "$VM_NAME" --machinereadable 2>/dev/null |
-		grep "^VMState=" | cut -d'"' -f2)
+if VBoxManage showvminfo "$VM_NAME" > /dev/null 2>&1; then
+	STATE=$(VBoxManage showvminfo "$VM_NAME" --machinereadable 2> /dev/null \
+		| grep "^VMState=" | cut -d'"' -f2)
 	if [ "$STATE" = "running" ]; then
 		status_row "${GRN}${BLD}✓${RST}" "VM \"${VM_NAME}\" ........" "${GRN}${BLD}running${RST}"
 	elif [ "$STATE" = "poweroff" ]; then

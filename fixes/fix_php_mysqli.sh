@@ -21,7 +21,7 @@ PHP_CONF_DIRS=("/etc/php/$PHP_VERSION/cgi" "/etc/php/$PHP_VERSION/cli" "/etc/php
 # First approach: Enable extension in mods-available
 echo "Creating/updating mysqli.ini in mods-available..."
 if [ -d "/etc/php/$PHP_VERSION/mods-available" ]; then
-	echo "extension=mysqli.so" >"/etc/php/$PHP_VERSION/mods-available/mysqli.ini"
+	echo "extension=mysqli.so" > "/etc/php/$PHP_VERSION/mods-available/mysqli.ini"
 	echo "Created mysqli.ini"
 
 	# Check for multiple PHP versions and enable for all
@@ -32,13 +32,13 @@ if [ -d "/etc/php/$PHP_VERSION/mods-available" ]; then
 
 			# Enable for CGI
 			if [ -d "$version_dir/cgi/conf.d" ]; then
-				ln -sf "/etc/php/$PHP_VERSION/mods-available/mysqli.ini" "$version_dir/cgi/conf.d/20-mysqli.ini" 2>/dev/null
+				ln -sf "/etc/php/$PHP_VERSION/mods-available/mysqli.ini" "$version_dir/cgi/conf.d/20-mysqli.ini" 2> /dev/null
 				echo "Enabled for PHP $version CGI"
 			fi
 
 			# Enable for CLI
 			if [ -d "$version_dir/cli/conf.d" ]; then
-				ln -sf "/etc/php/$PHP_VERSION/mods-available/mysqli.ini" "$version_dir/cli/conf.d/20-mysqli.ini" 2>/dev/null
+				ln -sf "/etc/php/$PHP_VERSION/mods-available/mysqli.ini" "$version_dir/cli/conf.d/20-mysqli.ini" 2> /dev/null
 				echo "Enabled for PHP $version CLI"
 			fi
 		fi
@@ -64,7 +64,7 @@ for CONF_DIR in "${PHP_CONF_DIRS[@]}"; do
 			else
 				# Add extension directive
 				echo "Adding mysqli extension to $PHP_INI"
-				echo "extension=mysqli.so" >>"$PHP_INI"
+				echo "extension=mysqli.so" >> "$PHP_INI"
 			fi
 		fi
 	fi
@@ -92,7 +92,7 @@ fi
 
 # Create a test PHP file in web root to verify mysqli
 echo "Creating PHP test file..."
-cat >"/var/www/html/mysqli-test.php" <<'EOF'
+cat > "/var/www/html/mysqli-test.php" << 'EOF'
 <?php
 echo "<h1>PHP mysqli Extension Test</h1>";
 echo "<p>PHP Version: " . phpversion() . "</p>";

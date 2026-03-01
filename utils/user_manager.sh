@@ -25,8 +25,8 @@ list_users() {
 	echo -e "${YELLOW}-----------------------------------------${NC}"
 
 	# List users with UID >= 1000 (normal users, not system users)
-	awk -F':' '$3 >= 1000 && $3 != 65534 {print $1,$3,$4,$6}' /etc/passwd |
-		while read username uid gid homedir; do
+	awk -F':' '$3 >= 1000 && $3 != 65534 {print $1,$3,$4,$6}' /etc/passwd \
+		| while read username uid gid homedir; do
 			group=$(getent group $gid | cut -d: -f1)
 			printf "%-15s %-10s %-10s %-20s\n" "$username" "$uid" "$group" "$homedir"
 		done
@@ -44,7 +44,7 @@ create_user() {
 	read -p "Enter username: " username
 
 	# Check if user already exists
-	if id "$username" &>/dev/null; then
+	if id "$username" &> /dev/null; then
 		echo -e "${RED}Error: User $username already exists!${NC}"
 		read -p "Press Enter to continue..."
 		return
@@ -79,7 +79,7 @@ delete_user() {
 	read -p "Enter username to delete: " username
 
 	# Check if user exists
-	if ! id "$username" &>/dev/null; then
+	if ! id "$username" &> /dev/null; then
 		echo -e "${RED}Error: User $username does not exist!${NC}"
 		read -p "Press Enter to continue..."
 		return
@@ -107,7 +107,7 @@ modify_user() {
 	read -p "Enter username to modify: " username
 
 	# Check if user exists
-	if ! id "$username" &>/dev/null; then
+	if ! id "$username" &> /dev/null; then
 		echo -e "${RED}Error: User $username does not exist!${NC}"
 		read -p "Press Enter to continue..."
 		return
@@ -123,62 +123,62 @@ modify_user() {
 	read -p "Select option [1-5]: " option
 
 	case $option in
-	1) # Change password
-		passwd "$username"
-		echo -e "${GREEN}Password changed for $username${NC}"
-		;;
-	2) # Add to group
-		read -p "Enter group name: " groupname
+		1) # Change password
+			passwd "$username"
+			echo -e "${GREEN}Password changed for $username${NC}"
+			;;
+		2) # Add to group
+			read -p "Enter group name: " groupname
 
-		# Check if group exists
-		if ! getent group "$groupname" &>/dev/null; then
-			read -p "Group doesn't exist. Create it? (y/n): " create_group
-			if [[ $create_group == "y" || $create_group == "Y" ]]; then
-				groupadd "$groupname"
-			else
-				echo -e "${RED}Operation canceled.${NC}"
-				read -p "Press Enter to continue..."
-				return
+			# Check if group exists
+			if ! getent group "$groupname" &> /dev/null; then
+				read -p "Group doesn't exist. Create it? (y/n): " create_group
+				if [[ $create_group == "y" || $create_group == "Y" ]]; then
+					groupadd "$groupname"
+				else
+					echo -e "${RED}Operation canceled.${NC}"
+					read -p "Press Enter to continue..."
+					return
+				fi
 			fi
-		fi
 
-		usermod -aG "$groupname" "$username"
-		echo -e "${GREEN}User $username added to group $groupname${NC}"
-		;;
-	3) # Change shell
-		echo "Available shells:"
-		cat /etc/shells
-		read -p "Enter new shell path: " shellpath
+			usermod -aG "$groupname" "$username"
+			echo -e "${GREEN}User $username added to group $groupname${NC}"
+			;;
+		3) # Change shell
+			echo "Available shells:"
+			cat /etc/shells
+			read -p "Enter new shell path: " shellpath
 
-		# Verify shell exists
-		if grep -q "^$shellpath$" /etc/shells; then
-			usermod -s "$shellpath" "$username"
-			echo -e "${GREEN}Shell changed for $username${NC}"
-		else
-			echo -e "${RED}Invalid shell. Please enter a path from /etc/shells${NC}"
-		fi
-		;;
-	4) # Lock/unlock account
-		echo "1. Lock account"
-		echo "2. Unlock account"
-		read -p "Select option [1-2]: " lock_option
+			# Verify shell exists
+			if grep -q "^$shellpath$" /etc/shells; then
+				usermod -s "$shellpath" "$username"
+				echo -e "${GREEN}Shell changed for $username${NC}"
+			else
+				echo -e "${RED}Invalid shell. Please enter a path from /etc/shells${NC}"
+			fi
+			;;
+		4) # Lock/unlock account
+			echo "1. Lock account"
+			echo "2. Unlock account"
+			read -p "Select option [1-2]: " lock_option
 
-		if [ "$lock_option" == "1" ]; then
-			passwd -l "$username"
-			echo -e "${GREEN}Account locked for $username${NC}"
-		elif [ "$lock_option" == "2" ]; then
-			passwd -u "$username"
-			echo -e "${GREEN}Account unlocked for $username${NC}"
-		else
+			if [ "$lock_option" == "1" ]; then
+				passwd -l "$username"
+				echo -e "${GREEN}Account locked for $username${NC}"
+			elif [ "$lock_option" == "2" ]; then
+				passwd -u "$username"
+				echo -e "${GREEN}Account unlocked for $username${NC}"
+			else
+				echo -e "${RED}Invalid option${NC}"
+			fi
+			;;
+		5) # Go back
+			return
+			;;
+		*)
 			echo -e "${RED}Invalid option${NC}"
-		fi
-		;;
-	5) # Go back
-		return
-		;;
-	*)
-		echo -e "${RED}Invalid option${NC}"
-		;;
+			;;
 	esac
 
 	read -p "Press Enter to continue..."
@@ -193,7 +193,7 @@ user_info() {
 	read -p "Enter username: " username
 
 	# Check if user exists
-	if ! id "$username" &>/dev/null; then
+	if ! id "$username" &> /dev/null; then
 		echo -e "${RED}Error: User $username does not exist!${NC}"
 		read -p "Press Enter to continue..."
 		return
@@ -262,19 +262,19 @@ while true; do
 	read -p "Select an option [1-7]: " choice
 
 	case $choice in
-	1) list_users ;;
-	2) create_user ;;
-	3) delete_user ;;
-	4) modify_user ;;
-	5) user_info ;;
-	6) show_password_policy ;;
-	7)
-		echo "Exiting..."
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		sleep 1
-		;;
+		1) list_users ;;
+		2) create_user ;;
+		3) delete_user ;;
+		4) modify_user ;;
+		5) user_info ;;
+		6) show_password_policy ;;
+		7)
+			echo "Exiting..."
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			sleep 1
+			;;
 	esac
 done

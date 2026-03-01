@@ -28,13 +28,13 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 # Check if snapd is installed
-if ! command -v snap &>/dev/null; then
+if ! command -v snap &> /dev/null; then
 	log "Installing snapd..."
 	apt-get update || error "Failed to update package lists"
 	apt-get install -y snapd || error "Failed to install snapd"
 
 	# Ensure snap paths are properly set up
-	ln -sf /var/lib/snapd/snap /snap 2>/dev/null || true
+	ln -sf /var/lib/snapd/snap /snap 2> /dev/null || true
 
 	# Restart snapd to ensure it's fully functional
 	systemctl enable snapd
@@ -52,7 +52,7 @@ snap install notion-snap || error "Failed to install Notion via Snap"
 
 # Create a more convenient command alias
 log "Creating command-line alias..."
-cat >/usr/local/bin/notion <<'EOF'
+cat > /usr/local/bin/notion << 'EOF'
 #!/bin/bash
 
 # Check if X server is available

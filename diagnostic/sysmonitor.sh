@@ -22,7 +22,7 @@ check_and_install_deps() {
 	local to_install=()
 
 	for dep in "${deps[@]}"; do
-		if ! command -v "$dep" &>/dev/null; then
+		if ! command -v "$dep" &> /dev/null; then
 			to_install+=("$dep")
 		fi
 	done
@@ -60,8 +60,8 @@ show_cpu_info() {
 	echo -e "${CYAN}CPU Cores:${RESET} $(lscpu | grep '^CPU(s)' | cut -d':' -f2- | sed 's/^[ \t]*//')"
 	echo -e "${CYAN}Thread(s) per core:${RESET} $(lscpu | grep 'Thread(s) per core' | cut -d':' -f2- | sed 's/^[ \t]*//')"
 	echo -e "${CYAN}CPU MHz:${RESET} $(lscpu | grep 'CPU MHz' | cut -d':' -f2- | sed 's/^[ \t]*//')"
-	echo -e "${CYAN}CPU Max MHz:${RESET} $(lscpu | grep 'CPU max MHz' | cut -d':' -f2- | sed 's/^[ \t]*//' 2>/dev/null || echo "N/A")"
-	echo -e "${CYAN}Virtualization:${RESET} $(lscpu | grep 'Virtualization' | cut -d':' -f2- | sed 's/^[ \t]*//' 2>/dev/null || echo "Not available")"
+	echo -e "${CYAN}CPU Max MHz:${RESET} $(lscpu | grep 'CPU max MHz' | cut -d':' -f2- | sed 's/^[ \t]*//' 2> /dev/null || echo "N/A")"
+	echo -e "${CYAN}Virtualization:${RESET} $(lscpu | grep 'Virtualization' | cut -d':' -f2- | sed 's/^[ \t]*//' 2> /dev/null || echo "Not available")"
 	echo
 
 	# CPU load
@@ -113,7 +113,7 @@ show_gpu_info() {
 	echo
 
 	# Check if inxi is installed for better GPU info
-	if command -v inxi &>/dev/null; then
+	if command -v inxi &> /dev/null; then
 		inxi -G
 	else
 		echo -e "${CYAN}GPU Information:${RESET}"
@@ -127,23 +127,23 @@ show_disk_info() {
 	echo -e "${BOLD}${BLUE}${UNDERLINE}DISK INFORMATION${RESET}"
 	echo
 
-	if command -v duf &>/dev/null; then
+	if command -v duf &> /dev/null; then
 		duf
 	else
 		df -h | grep -v tmpfs | grep -v loop
 	fi
 
 	# Show disk health if smartctl is available
-	if command -v smartctl &>/dev/null; then
+	if command -v smartctl &> /dev/null; then
 		echo -e "\n${CYAN}Disk Health:${RESET}"
-		for disk in $(ls /dev/sd* 2>/dev/null | grep -v [0-9]); do
+		for disk in $(ls /dev/sd* 2> /dev/null | grep -v [0-9]); do
 			echo -e "${YELLOW}$disk:${RESET}"
-			sudo smartctl -H $disk 2>/dev/null || echo "Unable to check health"
+			sudo smartctl -H $disk 2> /dev/null || echo "Unable to check health"
 		done
 
-		for disk in $(ls /dev/nvme* 2>/dev/null | grep -v p[0-9]); do
+		for disk in $(ls /dev/nvme* 2> /dev/null | grep -v p[0-9]); do
 			echo -e "${YELLOW}$disk:${RESET}"
-			sudo smartctl -H $disk 2>/dev/null || echo "Unable to check health"
+			sudo smartctl -H $disk 2> /dev/null || echo "Unable to check health"
 		done
 	fi
 	echo
@@ -215,66 +215,66 @@ main() {
 		echo
 
 		case $choice in
-		1)
-			show_system_summary
-			read -p "Press Enter to continue..."
-			;;
-		2)
-			show_cpu_info
-			read -p "Press Enter to continue..."
-			;;
-		3)
-			show_memory_info
-			read -p "Press Enter to continue..."
-			;;
-		4)
-			show_gpu_info
-			read -p "Press Enter to continue..."
-			;;
-		5)
-			show_disk_info
-			read -p "Press Enter to continue..."
-			;;
-		6)
-			show_network_info
-			read -p "Press Enter to continue..."
-			;;
-		7)
-			show_system_load
-			read -p "Press Enter to continue..."
-			;;
-		8)
-			show_top_processes
-			read -p "Press Enter to continue..."
-			;;
-		9)
-			show_system_summary
-			show_cpu_info
-			show_memory_info
-			show_gpu_info
-			show_disk_info
-			show_network_info
-			show_system_load
-			show_top_processes
-			read -p "Press Enter to continue..."
-			;;
-		m | M)
-			clear
-			echo -e "${BOLD}${YELLOW}Entering monitor mode. Press Ctrl+C to exit.${RESET}"
-			if command -v htop &>/dev/null; then
-				htop
-			else
-				top
-			fi
-			;;
-		q | Q)
-			echo -e "${GREEN}Goodbye!${RESET}"
-			exit 0
-			;;
-		*)
-			echo -e "${RED}Invalid option. Press Enter to continue...${RESET}"
-			read
-			;;
+			1)
+				show_system_summary
+				read -p "Press Enter to continue..."
+				;;
+			2)
+				show_cpu_info
+				read -p "Press Enter to continue..."
+				;;
+			3)
+				show_memory_info
+				read -p "Press Enter to continue..."
+				;;
+			4)
+				show_gpu_info
+				read -p "Press Enter to continue..."
+				;;
+			5)
+				show_disk_info
+				read -p "Press Enter to continue..."
+				;;
+			6)
+				show_network_info
+				read -p "Press Enter to continue..."
+				;;
+			7)
+				show_system_load
+				read -p "Press Enter to continue..."
+				;;
+			8)
+				show_top_processes
+				read -p "Press Enter to continue..."
+				;;
+			9)
+				show_system_summary
+				show_cpu_info
+				show_memory_info
+				show_gpu_info
+				show_disk_info
+				show_network_info
+				show_system_load
+				show_top_processes
+				read -p "Press Enter to continue..."
+				;;
+			m | M)
+				clear
+				echo -e "${BOLD}${YELLOW}Entering monitor mode. Press Ctrl+C to exit.${RESET}"
+				if command -v htop &> /dev/null; then
+					htop
+				else
+					top
+				fi
+				;;
+			q | Q)
+				echo -e "${GREEN}Goodbye!${RESET}"
+				exit 0
+				;;
+			*)
+				echo -e "${RED}Invalid option. Press Enter to continue...${RESET}"
+				read
+				;;
 		esac
 	done
 }

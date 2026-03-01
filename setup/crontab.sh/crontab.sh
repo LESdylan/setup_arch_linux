@@ -38,7 +38,7 @@ chmod +x "$MONITORING_SCRIPT"
 
 # Function to check if monitoring entry exists in crontab
 check_crontab() {
-	if sudo crontab -l 2>/dev/null | grep -q "$MONITORING_SCRIPT"; then
+	if sudo crontab -l 2> /dev/null | grep -q "$MONITORING_SCRIPT"; then
 		echo -e "${GREEN}✓ Monitoring script is in crontab${NC}"
 		sudo crontab -l | grep --color=auto "$MONITORING_SCRIPT"
 		return 0 # Entry exists
@@ -59,7 +59,7 @@ add_to_crontab() {
 	fi
 
 	# Get existing crontab content
-	crontab_content=$(sudo crontab -l 2>/dev/null)
+	crontab_content=$(sudo crontab -l 2> /dev/null)
 
 	# Add new cron job for monitoring script
 	echo -e "${YELLOW}Adding entry to run every 10 minutes...${NC}"
@@ -94,7 +94,7 @@ remove_from_crontab() {
 	fi
 
 	# Get existing crontab content and remove our script
-	sudo crontab -l 2>/dev/null | grep -v "$MONITORING_SCRIPT" | sudo crontab -
+	sudo crontab -l 2> /dev/null | grep -v "$MONITORING_SCRIPT" | sudo crontab -
 
 	if [ $? -eq 0 ]; then
 		echo -e "${GREEN}✓ Monitoring script removed from crontab successfully${NC}"
@@ -111,7 +111,7 @@ modify_schedule() {
 	echo -e "\n${BLUE}=== Modify Cron Schedule ===${NC}"
 
 	echo -e "${YELLOW}Current schedule: ${NC}"
-	sudo crontab -l 2>/dev/null | grep "$MONITORING_SCRIPT" | awk '{print $1, $2, $3, $4, $5}'
+	sudo crontab -l 2> /dev/null | grep "$MONITORING_SCRIPT" | awk '{print $1, $2, $3, $4, $5}'
 
 	echo -e "\n${YELLOW}Common cron schedules:${NC}"
 	echo "1. Every 10 minutes: */10 * * * *"
@@ -124,26 +124,26 @@ modify_schedule() {
 	read -p "Select schedule [1-6]: " schedule_option
 
 	case $schedule_option in
-	1) new_schedule="*/10 * * * *" ;;
-	2) new_schedule="*/5 * * * *" ;;
-	3) new_schedule="*/30 * * * *" ;;
-	4) new_schedule="0 * * * *" ;;
-	5) new_schedule="0 0 * * *" ;;
-	6)
-		echo -e "${YELLOW}Enter custom cron schedule (5 fields: minute hour day month weekday):${NC}"
-		read -p "> " new_schedule
-		;;
-	*)
-		echo -e "${RED}Invalid option. Using default (every 10 minutes).${NC}"
-		new_schedule="*/10 * * * *"
-		;;
+		1) new_schedule="*/10 * * * *" ;;
+		2) new_schedule="*/5 * * * *" ;;
+		3) new_schedule="*/30 * * * *" ;;
+		4) new_schedule="0 * * * *" ;;
+		5) new_schedule="0 0 * * *" ;;
+		6)
+			echo -e "${YELLOW}Enter custom cron schedule (5 fields: minute hour day month weekday):${NC}"
+			read -p "> " new_schedule
+			;;
+		*)
+			echo -e "${RED}Invalid option. Using default (every 10 minutes).${NC}"
+			new_schedule="*/10 * * * *"
+			;;
 	esac
 
 	# Update crontab with new schedule
-	sudo crontab -l 2>/dev/null | grep -v "$MONITORING_SCRIPT" | sudo crontab -
+	sudo crontab -l 2> /dev/null | grep -v "$MONITORING_SCRIPT" | sudo crontab -
 
 	{
-		sudo crontab -l 2>/dev/null
+		sudo crontab -l 2> /dev/null
 		echo "$new_schedule $MONITORING_SCRIPT"
 	} | sudo crontab -
 
@@ -170,17 +170,17 @@ while true; do
 	read -p "Select an option [1-5]: " option
 
 	case $option in
-	1) check_crontab ;;
-	2) add_to_crontab ;;
-	3) remove_from_crontab ;;
-	4) modify_schedule ;;
-	5)
-		echo -e "${GREEN}Exiting Crontab Manager${NC}"
-		exit 0
-		;;
-	*)
-		echo -e "${RED}Invalid option. Please try again.${NC}"
-		;;
+		1) check_crontab ;;
+		2) add_to_crontab ;;
+		3) remove_from_crontab ;;
+		4) modify_schedule ;;
+		5)
+			echo -e "${GREEN}Exiting Crontab Manager${NC}"
+			exit 0
+			;;
+		*)
+			echo -e "${RED}Invalid option. Please try again.${NC}"
+			;;
 	esac
 
 	echo ""

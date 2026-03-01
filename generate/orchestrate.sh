@@ -22,7 +22,19 @@ SHOW_CUR='\033[?25h'
 CLR='\033[2K'
 
 # Early trap (before functions are defined)
-trap 'printf "${SHOW_CUR}"; rm -rf "$LOG_DIR"' EXIT INT TERM
+cleanup() {
+	local sig="$1"
+	stop_spinner 2> /dev/null || true
+	printf "${SHOW_CUR}"
+	rm -rf "$LOG_DIR"
+	if [ "$sig" = "INT" ] || [ "$sig" = "TERM" ]; then
+		printf "\n${YLW}${BLD}  ⚠  Interrupted by user${RST}\n\n"
+		exit 130
+	fi
+}
+trap 'cleanup EXIT' EXIT
+trap 'cleanup INT' INT
+trap 'cleanup TERM' TERM
 
 # ── Box drawing (single-line, rounded corners) ───────────────────────────────
 W=60 # default inner visible width — recalculated before summary
@@ -62,7 +74,7 @@ for c in s:
     else:
         w += 1
 print(w)
-" 2>/dev/null || {
+" 2> /dev/null || {
 		printf '%s' "$text" | sed 's/\x1b\[[0-9;]*m//g' | wc -m
 	}
 }
@@ -80,7 +92,7 @@ _auto_width() {
 	done
 	# Add 2 for right padding, clamp to [60, terminal_cols - 6]
 	local term_w
-	term_w=$(tput cols 2>/dev/null || echo 100)
+	term_w=$(tput cols 2> /dev/null || echo 100)
 	W=$((max_w + 2))
 	if [ "$W" -lt 60 ]; then W=60; fi
 	local max_allowed=$((term_w - 6))
@@ -159,31 +171,31 @@ draw_dashboard() {
 		SPIN_IDX=$(((SPIN_IDX + 1) % SPIN_LEN))
 
 		case "$st" in
-		pending)
-			icon="·"
-			color="${DIM}"
-			label="waiting"
-			;;
-		working)
-			icon="${SPIN_FRAMES[$SPIN_IDX]}"
-			color="${BLU}"
-			label="working..."
-			;;
-		done)
-			icon="✓"
-			color="${GRN}"
-			label="done"
-			;;
-		skip)
-			icon="✓"
-			color="${GRN}"
-			label="ready"
-			;;
-		fail)
-			icon="✗"
-			color="${RED}"
-			label="FAILED"
-			;;
+			pending)
+				icon="·"
+				color="${DIM}"
+				label="waiting"
+				;;
+			working)
+				icon="${SPIN_FRAMES[$SPIN_IDX]}"
+				color="${BLU}"
+				label="working..."
+				;;
+			done)
+				icon="✓"
+				color="${GRN}"
+				label="done"
+				;;
+			skip)
+				icon="✓"
+				color="${GRN}"
+				label="ready"
+				;;
+			fail)
+				icon="✗"
+				color="${RED}"
+				label="FAILED"
+				;;
 		esac
 
 		local det_str=""
@@ -227,14 +239,13 @@ start_spinner() {
 
 stop_spinner() {
 	if [ -n "$SPINNER_PID" ]; then
-		kill "$SPINNER_PID" 2>/dev/null
-		wait "$SPINNER_PID" 2>/dev/null
+		kill "$SPINNER_PID" 2> /dev/null
+		wait "$SPINNER_PID" 2> /dev/null
 		SPINNER_PID=""
 	fi
 }
 
-# Override trap now that stop_spinner is defined
-trap 'stop_spinner; printf "${SHOW_CUR}"; rm -rf "$LOG_DIR"' EXIT INT TERM
+# Override trap now that stop_spinner is defined (cleanup() already calls stop_spinner)
 
 # ── Run step in FOREGROUND with animated spinner ─────────────────────────────
 run_step() {
@@ -252,7 +263,8 @@ run_step() {
 
 	# Run the actual command in FOREGROUND (blocks until done)
 	local rc=0
-	"$@" >"$log" 2>&1 || rc=$?
+	touch "$log"
+	"$@" > "$log" 2>&1 || rc=$?
 
 	# Kill spinner, update state, redraw
 	stop_spinner
@@ -264,7 +276,11 @@ run_step() {
 		STEP_STATUS[$idx]="fail"
 		draw_dashboard
 		printf "\n${RED}${BLD}  ── Error log: ${STEPS[$idx]} ──${RST}\n${DIM}"
-		tail -30 "$log" | sed 's/^/    /'
+		if [ -f "$log" ]; then
+			tail -30 "$log" | sed 's/^/    /'
+		else
+			printf "    (log file was cleaned up)\n"
+		fi
 		printf "${RST}\n"
 		exit 1
 	fi
@@ -272,10 +288,10 @@ run_step() {
 
 # ── Detect host IP (cross-platform) ─────────────────────────────────────────
 get_host_ip() {
-	if command -v ip >/dev/null 2>&1; then
-		ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1
-	elif command -v hostname >/dev/null 2>&1; then
-		hostname -I 2>/dev/null | awk '{print $1}'
+	if command -v ip > /dev/null 2>&1; then
+		ip route get 1.1.1.1 2> /dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1
+	elif command -v hostname > /dev/null 2>&1; then
+		hostname -I 2> /dev/null | awk '{print $1}'
 	else
 		echo "127.0.0.1"
 	fi
@@ -288,25 +304,25 @@ printf "${HIDE_CUR}\n"
 draw_dashboard true
 
 # Step 1 — VirtualBox
-if command -v VBoxManage >/dev/null 2>&1; then
+if command -v VBoxManage > /dev/null 2>&1; then
 	STEP_STATUS[0]="skip"
-	STEP_DETAIL[0]="v$(VBoxManage --version 2>/dev/null)"
+	STEP_DETAIL[0]="v$(VBoxManage --version 2> /dev/null)"
 	draw_dashboard
 else
 	run_step 0 ${MAKE_CMD} --no-print-directory deps
-	STEP_DETAIL[0]="v$(VBoxManage --version 2>/dev/null)"
+	STEP_DETAIL[0]="v$(VBoxManage --version 2> /dev/null)"
 	draw_dashboard
 fi
 
 # Step 2 — Preseeded ISO
-PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
+PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2> /dev/null | head -n1)
 if [ -n "$PRESEED_ISO" ]; then
 	STEP_STATUS[1]="skip"
 	STEP_DETAIL[1]="$PRESEED_ISO"
 	draw_dashboard
 else
 	run_step 1 ${MAKE_CMD} --no-print-directory gen_iso
-	PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
+	PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2> /dev/null | head -n1)
 	STEP_DETAIL[1]="$PRESEED_ISO"
 	draw_dashboard
 fi
@@ -314,14 +330,14 @@ fi
 # Step 3 — VM creation
 # Check VM exists AND its disk is intact (not just registered)
 VM_OK=false
-if VBoxManage showvminfo "${VM_NAME}" >/dev/null 2>&1; then
-	VM_VDI=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-		grep '"SATA Controller-0-0"' | cut -d'"' -f4)
+if VBoxManage showvminfo "${VM_NAME}" > /dev/null 2>&1; then
+	VM_VDI=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+		| grep '"SATA Controller-0-0"' | cut -d'"' -f4)
 	if [ -n "$VM_VDI" ] && [ -f "$VM_VDI" ]; then
 		VM_OK=true
 	else
 		# Stale VM registration — disk is missing, clean it up
-		VBoxManage unregistervm "${VM_NAME}" --delete 2>/dev/null || true
+		VBoxManage unregistervm "${VM_NAME}" --delete 2> /dev/null || true
 	fi
 fi
 
@@ -336,8 +352,8 @@ else
 fi
 
 # Step 4 — Start VM (install from ISO)
-VM_STATE=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-	grep "^VMState=" | cut -d'"' -f2)
+VM_STATE=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+	| grep "^VMState=" | cut -d'"' -f2)
 if [ "$VM_STATE" = "running" ]; then
 	STEP_STATUS[3]="skip"
 	STEP_DETAIL[3]="already running"
@@ -356,11 +372,11 @@ wait_for_vm_unlock() {
 	local i=0
 	while [ "$i" -lt "$max_wait" ]; do
 		local st
-		st=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-			grep "^VMState=" | cut -d'"' -f2)
+		st=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+			| grep "^VMState=" | cut -d'"' -f2)
 		if [ "$st" = "poweroff" ] || [ "$st" = "aborted" ] || [ "$st" = "saved" ]; then
 			# Try a harmless modifyvm to see if the lock is actually released
-			if VBoxManage modifyvm "${VM_NAME}" --description "b2b" 2>/dev/null; then
+			if VBoxManage modifyvm "${VM_NAME}" --description "b2b" 2> /dev/null; then
 				return 0
 			fi
 		fi
@@ -375,9 +391,9 @@ switch_boot_to_disk() {
 	local max_retries=5
 	local attempt=0
 	while [ "$attempt" -lt "$max_retries" ]; do
-		if VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null; then
+		if VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2> /dev/null; then
 			VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" \
-				--port 0 --device 0 --medium emptydrive 2>/dev/null || true
+				--port 0 --device 0 --medium emptydrive 2> /dev/null || true
 			return 0
 		fi
 		sleep 3
@@ -385,11 +401,11 @@ switch_boot_to_disk() {
 	done
 	# Last-resort: the lock may be truly stuck — kill any leftover VBox processes
 	# for this VM and try one more time
-	VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+	VBoxManage controlvm "${VM_NAME}" poweroff 2> /dev/null || true
 	sleep 5
-	VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2>/dev/null || true
+	VBoxManage modifyvm "${VM_NAME}" --boot1 disk --boot2 dvd --boot3 none --boot4 none 2> /dev/null || true
 	VBoxManage storageattach "${VM_NAME}" --storagectl "IDE Controller" \
-		--port 0 --device 0 --medium emptydrive 2>/dev/null || true
+		--port 0 --device 0 --medium emptydrive 2> /dev/null || true
 }
 
 # ── Wait for install to finish (VM will power off) then boot from disk ───
@@ -409,16 +425,16 @@ wait_for_install() {
 	local metrics_available=false
 
 	# Try to enable metrics (not all VBox installations support this)
-	if VBoxManage metrics setup --period 5 --samples 3 "${VM_NAME}" 2>/dev/null; then
-		VBoxManage metrics enable "${VM_NAME}" CPU/Load/User 2>/dev/null && metrics_available=true
+	if VBoxManage metrics setup --period 5 --samples 3 "${VM_NAME}" 2> /dev/null; then
+		VBoxManage metrics enable "${VM_NAME}" CPU/Load/User 2> /dev/null && metrics_available=true
 	fi
 
 	while [ $elapsed -lt $timeout ]; do
 		sleep 10
 		elapsed=$((elapsed + 10))
 		local state
-		state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-			grep "^VMState=" | cut -d'"' -f2)
+		state=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+			| grep "^VMState=" | cut -d'"' -f2)
 
 		# Clean poweroff detected — the installer finished and ACPI worked
 		if [ "$state" = "poweroff" ] || [ "$state" = "aborted" ]; then
@@ -430,9 +446,9 @@ wait_for_install() {
 		# so we just wait for the VM to reach poweroff state on its own.
 		if [ "$state" = "running" ] && [ $elapsed -gt $min_elapsed ] && [ "$metrics_available" = true ]; then
 			local cpu_pct
-			cpu_pct=$(VBoxManage metrics query "${VM_NAME}" CPU/Load/User 2>/dev/null |
-				tail -1 | awk '{print $NF}' | tr -d '%' | cut -d. -f1)
-			if [ -n "$cpu_pct" ] && [ "$cpu_pct" -eq 0 ] 2>/dev/null; then
+			cpu_pct=$(VBoxManage metrics query "${VM_NAME}" CPU/Load/User 2> /dev/null \
+				| tail -1 | awk '{print $NF}' | tr -d '%' | cut -d. -f1)
+			if [ -n "$cpu_pct" ] && [ "$cpu_pct" -eq 0 ] 2> /dev/null; then
 				zero_cpu_count=$((zero_cpu_count + 1))
 			elif [ -n "$cpu_pct" ]; then
 				zero_cpu_count=0
@@ -440,7 +456,7 @@ wait_for_install() {
 			if [ $zero_cpu_count -ge 12 ]; then
 				STEP_DETAIL[3]="VM halted (0% CPU for 2min), forcing poweroff..."
 				draw_dashboard
-				VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+				VBoxManage controlvm "${VM_NAME}" poweroff 2> /dev/null || true
 				wait_for_vm_unlock
 				return 0
 			fi
@@ -452,14 +468,14 @@ wait_for_install() {
 	done
 	STEP_DETAIL[3]="timeout reached, forcing poweroff..."
 	draw_dashboard
-	VBoxManage controlvm "${VM_NAME}" poweroff 2>/dev/null || true
+	VBoxManage controlvm "${VM_NAME}" poweroff 2> /dev/null || true
 	wait_for_vm_unlock
 	return 0
 }
 
 # Only wait if the VM was just started for installation (DVD boot)
-BOOT1=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-	grep "^boot1=" | cut -d'"' -f2)
+BOOT1=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+	| grep "^boot1=" | cut -d'"' -f2)
 if [ "$BOOT1" = "dvd" ]; then
 	STEP_DETAIL[3]="installing (this takes ~10-20 min)..."
 	draw_dashboard
@@ -468,8 +484,8 @@ if [ "$BOOT1" = "dvd" ]; then
 	draw_dashboard
 	wait_for_vm_unlock
 	switch_boot_to_disk
-	new_boot=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-		grep "^boot1=" | cut -d'"' -f2)
+	new_boot=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+		| grep "^boot1=" | cut -d'"' -f2)
 	if [ "$new_boot" != "disk" ]; then
 		sleep 5
 		switch_boot_to_disk
@@ -478,7 +494,7 @@ if [ "$BOOT1" = "dvd" ]; then
 	STEP_DETAIL[3]="install done, booting from disk..."
 	draw_dashboard
 	sleep 2
-	VBoxManage startvm "${VM_NAME}" --type gui 2>/dev/null || true
+	VBoxManage startvm "${VM_NAME}" --type gui 2> /dev/null || true
 	STEP_STATUS[3]="done"
 	STEP_DETAIL[3]="booted from disk ✓"
 	draw_dashboard
@@ -491,8 +507,8 @@ fi
 get_vm_port() {
 	local name="$1"
 	local line
-	line=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2>/dev/null |
-		grep "^Forwarding" | grep "\"${name}")
+	line=$(VBoxManage showvminfo "${VM_NAME}" --machinereadable 2> /dev/null \
+		| grep "^Forwarding" | grep "\"${name}")
 	# If searching for "http", exclude "https" matches
 	if [ "$name" = "http" ]; then
 		line=$(echo "$line" | grep -v "\"https")
@@ -505,7 +521,7 @@ find_free_port() {
 	local port="$1"
 	local max=100 i=0
 	while [ "$i" -lt "$max" ]; do
-		if ! (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
+		if ! (ss -tln 2> /dev/null || netstat -tln 2> /dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
 			echo "$port"
 			return 0
 		fi
@@ -537,14 +553,14 @@ setup_host_ssh_config() {
 	chmod 600 "$ssh_config"
 
 	# Remove any previous Born2beRoot block
-	if grep -q "$marker" "$ssh_config" 2>/dev/null; then
+	if grep -q "$marker" "$ssh_config" 2> /dev/null; then
 		sed -i "/${marker}/,/^$/d" "$ssh_config"
 	fi
 
 	# Ensure global keepalive defaults exist at the top
 	# ServerAliveInterval 15 = send keepalive every 15 seconds to keep VirtualBox NAT alive
-	if ! grep -q '^Host \*' "$ssh_config" 2>/dev/null; then
-		cat >>"$ssh_config" <<SSHEOF
+	if ! grep -q '^Host \*' "$ssh_config" 2> /dev/null; then
+		cat >> "$ssh_config" << SSHEOF
 
 Host *
     ServerAliveInterval 15
@@ -556,7 +572,7 @@ SSHEOF
 	fi
 
 	# Add VM-specific shortcut
-	cat >>"$ssh_config" <<SSHEOF
+	cat >> "$ssh_config" << SSHEOF
 
 ${marker}
 Host b2b vm born2beroot
@@ -605,10 +621,10 @@ s['remote.SSH.showLoginTerminal'] = True
 
 with open('$vscode_settings', 'w') as f:
     json.dump(s, f, indent=4)
-" 2>/dev/null && echo "  ✓ VS Code Remote SSH settings configured (Terminal Mode, no SOCKS proxy)" || true
+" 2> /dev/null && echo "  ✓ VS Code Remote SSH settings configured (Terminal Mode, no SOCKS proxy)" || true
 
 	# Clean stale server data that causes 'Running server is stale' errors
-	rm -rf "$HOME/.config/Code/User/globalStorage/ms-vscode-remote.remote-ssh/vscode-ssh-host-"* 2>/dev/null
+	rm -rf "$HOME/.config/Code/User/globalStorage/ms-vscode-remote.remote-ssh/vscode-ssh-host-"* 2> /dev/null
 }
 
 # ── SSH key auth (enables instant reconnection without password prompts) ─────
@@ -626,6 +642,7 @@ run_nodejs_installer() {
 	local script_path="./setup/install/install_nodejs.sh"
 	local ssh_port
 	local vm_user="${VM_SSH_USER:-dlesieur}"
+	local ssh_opts="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5"
 
 	[ -f "$script_path" ] || {
 		echo "Missing: $script_path"
@@ -638,31 +655,47 @@ run_nodejs_installer() {
 		return 1
 	}
 
-	local max_wait=120
+	# ── Phase 1: Wait for SSH ────────────────────────────────────────────
+	local max_wait=180
 	local waited=0
+	STEP_DETAIL[4]="waiting for SSH (0/${max_wait}s)..."
+	draw_dashboard
 	while [ "$waited" -lt "$max_wait" ]; do
-		if ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-			-o ConnectTimeout=3 "${vm_user}@127.0.0.1" "echo ok" >/dev/null 2>&1; then
+		if ssh -p "$ssh_port" $ssh_opts \
+			"${vm_user}@127.0.0.1" "echo ok" > /dev/null 2>&1; then
 			break
 		fi
-		sleep 2
-		waited=$((waited + 2))
+		sleep 3
+		waited=$((waited + 3))
+		STEP_DETAIL[4]="waiting for SSH (${waited}/${max_wait}s)..."
+		draw_dashboard
 	done
-	[ "$waited" -lt "$max_wait" ] || {
-		echo "VM SSH did not become ready"
+	if [ "$waited" -ge "$max_wait" ]; then
+		echo "VM SSH did not become ready after ${max_wait}s"
+		echo "Hint: VM may still be booting or disk encryption passphrase is needed"
 		return 1
-	}
+	fi
 
+	# ── Phase 2: Upload installer ────────────────────────────────────────
+	STEP_DETAIL[4]="uploading installer..."
+	draw_dashboard
 	chmod +x "$script_path"
-
-	scp -P "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+	scp -P "$ssh_port" $ssh_opts \
 		"$script_path" "${vm_user}@127.0.0.1:/tmp/install_nodejs.sh" || return 1
 
-	ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+	# ── Phase 3: Run installer inside VM ─────────────────────────────────
+	STEP_DETAIL[4]="installing nvm + node + pnpm (this takes ~1-2 min)..."
+	draw_dashboard
+	ssh -p "$ssh_port" $ssh_opts \
 		"${vm_user}@127.0.0.1" "chmod +x /tmp/install_nodejs.sh && bash /tmp/install_nodejs.sh" || return 1
 
-	ssh -p "$ssh_port" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-		"${vm_user}@127.0.0.1" "source ~/.nvm/nvm.sh && node -v && npm -v && pnpm -v" || return 1
+	# ── Phase 4: Verify installation ─────────────────────────────────────
+	STEP_DETAIL[4]="verifying installation..."
+	draw_dashboard
+	local versions
+	versions=$(ssh -p "$ssh_port" $ssh_opts \
+		"${vm_user}@127.0.0.1" "source ~/.nvm/nvm.sh 2>/dev/null; echo \"node=\$(node -v 2>/dev/null || echo N/A) npm=\$(npm -v 2>/dev/null || echo N/A) pnpm=\$(pnpm -v 2>/dev/null || echo N/A)\"" 2> /dev/null) || return 1
+	echo "$versions"
 }
 
 # ...existing code...
@@ -674,9 +707,9 @@ draw_dashboard
 # run_step 3 VBoxManage startvm "${VM_NAME}" --type gui
 # STEP_DETAIL[3]="installing..."; draw_dashboard
 
-setup_host_ssh_config 2>/dev/null || true
-setup_vscode_remote_ssh 2>/dev/null || true
-setup_ssh_key_auth 2>/dev/null || true
+setup_host_ssh_config 2> /dev/null || true
+setup_vscode_remote_ssh 2> /dev/null || true
+setup_ssh_key_auth 2> /dev/null || true
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 HOST_IP=$(get_host_ip)

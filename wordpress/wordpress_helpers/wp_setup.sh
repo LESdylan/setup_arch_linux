@@ -93,9 +93,9 @@ configure_mariadb() {
 	echo -e "${GREEN}✓ MariaDB configured and WordPress database created${NC}"
 
 	# Save credentials for later
-	echo "DB_NAME=$db_name" >/root/wordpress_credentials.txt
-	echo "DB_USER=$db_user" >>/root/wordpress_credentials.txt
-	echo "DB_PASSWORD=$db_password" >>/root/wordpress_credentials.txt
+	echo "DB_NAME=$db_name" > /root/wordpress_credentials.txt
+	echo "DB_USER=$db_user" >> /root/wordpress_credentials.txt
+	echo "DB_PASSWORD=$db_password" >> /root/wordpress_credentials.txt
 	chmod 600 /root/wordpress_credentials.txt
 
 	echo -e "${YELLOW}! Database credentials saved to /root/wordpress_credentials.txt${NC}"

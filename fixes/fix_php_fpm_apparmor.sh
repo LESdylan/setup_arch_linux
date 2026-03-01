@@ -18,11 +18,11 @@ fi
 
 # Step 1: Disable current profiles
 echo -e "\n${YELLOW}Step 1: Disabling current AppArmor profiles...${NC}"
-aa-disable usr.sbin.php-fpm8.2 2>/dev/null || true
-aa-disable usr.sbin.lighttpd 2>/dev/null || true
+aa-disable usr.sbin.php-fpm8.2 2> /dev/null || true
+aa-disable usr.sbin.lighttpd 2> /dev/null || true
 
-apparmor_parser -R /etc/apparmor.d/usr.sbin.php-fpm8.2 2>/dev/null || true
-apparmor_parser -R /etc/apparmor.d/usr.sbin.lighttpd 2>/dev/null || true
+apparmor_parser -R /etc/apparmor.d/usr.sbin.php-fpm8.2 2> /dev/null || true
+apparmor_parser -R /etc/apparmor.d/usr.sbin.lighttpd 2> /dev/null || true
 
 # Step 2: Check logs for specific errors
 echo -e "\n${YELLOW}Step 2: Checking PHP-FPM logs for specific errors...${NC}"
@@ -32,7 +32,7 @@ journalctl -xeu php8.2-fpm.service | grep -i "apparmor\|denied\|permission" | ta
 echo -e "\n${YELLOW}Step 3: Creating service-compatible AppArmor profiles...${NC}"
 
 # Very minimal PHP-FPM profile that should work
-cat >/etc/apparmor.d/usr.sbin.php-fpm8.2 <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.php-fpm8.2 << 'EOF'
 #include <tunables/global>
 
 profile php-fpm8.2 /usr/sbin/php-fpm8.2 {
@@ -98,7 +98,7 @@ profile php-fpm8.2 /usr/sbin/php-fpm8.2 {
 EOF
 
 # Very minimal Lighttpd profile that should work
-cat >/etc/apparmor.d/usr.sbin.lighttpd <<'EOF'
+cat > /etc/apparmor.d/usr.sbin.lighttpd << 'EOF'
 #include <tunables/global>
 
 profile lighttpd /usr/sbin/lighttpd {
@@ -153,7 +153,7 @@ EOF
 echo -e "\n${YELLOW}Step 4: Creating simulation scripts for demonstration...${NC}"
 
 # Create realistic simulation protection script
-cat >/root/wordpress-security-demo/toggle-protection.sh <<'EOF'
+cat > /root/wordpress-security-demo/toggle-protection.sh << 'EOF'
 #!/bin/bash
 
 RED='\033[0;31m'
@@ -243,7 +243,7 @@ else
 fi
 
 # Create attack simulation script with workarounds
-cat >/tmp/malicious-webshell.php <<'EOF'
+cat > /tmp/malicious-webshell.php << 'EOF'
 <?php
 // This file simulates a malicious webshell that checks the demo flag
 

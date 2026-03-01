@@ -27,7 +27,7 @@ if [ -f "$PHP_FPM_DIR/php.ini" ]; then
 		sed -i 's/^;extension=mysqli/extension=mysqli/' "$PHP_FPM_DIR/php.ini"
 	else
 		echo "Adding mysqli extension to php.ini"
-		echo "extension=mysqli.so" >>"$PHP_FPM_DIR/php.ini"
+		echo "extension=mysqli.so" >> "$PHP_FPM_DIR/php.ini"
 	fi
 else
 	echo "PHP-FPM php.ini not found at $PHP_FPM_DIR/php.ini"
@@ -41,7 +41,7 @@ fi
 
 # Step 3: Create mysqli.ini in conf.d
 echo "Creating mysqli.ini in FPM conf.d directory"
-echo "extension=mysqli.so" >"$PHP_FPM_DIR/conf.d/20-mysqli.ini"
+echo "extension=mysqli.so" > "$PHP_FPM_DIR/conf.d/20-mysqli.ini"
 
 # Step 4: Check lighttpd configuration for PHP-FPM
 echo "Checking Lighttpd configuration for PHP-FPM..."
@@ -64,7 +64,7 @@ if [ -f "$LIGHTTPD_PHP_FPM_CONF" ]; then
 else
 	echo "Creating PHP-FPM configuration for Lighttpd"
 	# Create PHP-FPM configuration for Lighttpd
-	cat >"$LIGHTTPD_PHP_FPM_CONF" <<'EOF'
+	cat > "$LIGHTTPD_PHP_FPM_CONF" << 'EOF'
 # -*- depends: fastcgi -*-
 # -*- conflicts: fastcgi-php -*-
 
@@ -103,7 +103,7 @@ fi
 
 # Step 6: Create a test file
 echo "Creating a PHP test file..."
-cat >"/var/www/html/mysqli-test.php" <<'EOF'
+cat > "/var/www/html/mysqli-test.php" << 'EOF'
 <?php
 echo "<h1>PHP mysqli Extension Test</h1>";
 echo "<p>PHP Version: " . phpversion() . "</p>";

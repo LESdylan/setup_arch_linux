@@ -10,14 +10,14 @@ remove_program() {
 	echo -e "\n🔍 Searching for \"$program_name\" in your system...\n"
 
 	# Search for entries in PATH directories
-	IFS=':' read -ra PATH_DIRS <<<"$PATH"
+	IFS=':' read -ra PATH_DIRS <<< "$PATH"
 	for dir in "${PATH_DIRS[@]}"; do
 		if [ -d "$dir" ]; then
 			while IFS= read -r path; do
 				if [ -x "$path" ] && [ -f "$path" ]; then
 					found_in_path+=("$path")
 				fi
-			done < <(find "$dir" -name "*$program_name*" 2>/dev/null)
+			done < <(find "$dir" -name "*$program_name*" 2> /dev/null)
 		fi
 	done
 
@@ -28,7 +28,7 @@ remove_program() {
 				if [ -L "$symlink" ] && [[ "$(basename "$symlink")" == *"$program_name"* ]]; then
 					found_symlinks+=("$symlink")
 				fi
-			done < <(find "$dir" -type l -name "*$program_name*" 2>/dev/null)
+			done < <(find "$dir" -type l -name "*$program_name*" 2> /dev/null)
 		fi
 	done
 
@@ -117,7 +117,7 @@ remove_program() {
 				temp_file=$(mktemp)
 
 				# Filter out the PATH lines that contain our directory
-				grep -v "export PATH=.*:${selected_dir}\\(:.*\\)\\?\"\\?$" "$config" >"$temp_file"
+				grep -v "export PATH=.*:${selected_dir}\\(:.*\\)\\?\"\\?$" "$config" > "$temp_file"
 				mv "$temp_file" "$config"
 
 				echo -e "✅ Removed PATH entry for \"$selected_dir\" from $config"

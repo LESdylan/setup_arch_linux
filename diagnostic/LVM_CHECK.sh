@@ -28,13 +28,13 @@ fi
 
 # Method 3: Check with vgs and lvs - but handle permission issues
 echo -e "\nAttempting privileged LVM checks (might require sudo):"
-if command -v vgs >/dev/null 2>&1; then
-	if vgs 2>/dev/null | grep -q "VG"; then
+if command -v vgs > /dev/null 2>&1; then
+	if vgs 2> /dev/null | grep -q "VG"; then
 		echo -e "${GREEN}✓ LVM volume groups found${NC}"
-		vgs 2>/dev/null | sed 's/^/  /'
-	elif sudo vgs 2>/dev/null | grep -q "VG"; then
+		vgs 2> /dev/null | sed 's/^/  /'
+	elif sudo vgs 2> /dev/null | grep -q "VG"; then
 		echo -e "${GREEN}✓ LVM volume groups found (sudo required)${NC}"
-		sudo vgs 2>/dev/null | sed 's/^/  /'
+		sudo vgs 2> /dev/null | sed 's/^/  /'
 	else
 		echo -e "${RED}✗ No LVM volume groups detected${NC}"
 	fi
