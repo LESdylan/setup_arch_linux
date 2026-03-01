@@ -1,3 +1,5 @@
+#!/bin/bash
+
 echo "=== 1. ROOT REDIRECT ===" && curl -sI http://127.0.0.1:8082/ | head -3
 echo "=== 2. WORDPRESS FRONT PAGE ===" && curl -sL http://127.0.0.1:8082/wordpress/ | grep -o '<title>[^<]*</title>'
 echo "=== 3. WP-LOGIN ===" && curl -sI http://127.0.0.1:8082/wordpress/wp-login.php | head -3

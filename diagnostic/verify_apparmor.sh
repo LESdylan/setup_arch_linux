@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Create a test script
 cat > ~/test-apparmor.sh << 'EOF'
 #!/bin/bash

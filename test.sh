@@ -1,3 +1,5 @@
+#!/bin/bash
+
 ssh -p 4242 dlesieur@127.0.0.1
 # Inside VM:
 docker --version

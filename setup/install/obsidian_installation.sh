@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Install Flatpak if not already installed
 sudo apt install flatpak
 

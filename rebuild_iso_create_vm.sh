@@ -1,3 +1,5 @@
+#!/bin/bash
+
 VBoxManage controlvm debian poweroff 2> /dev/null
 sleep 2
 VBoxManage unregistervm debian --delete 2> /dev/null
