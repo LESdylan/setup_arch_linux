@@ -518,6 +518,9 @@ done
 for f in /lib/systemd/system/php*-fpm.service; do
     [ -f "$f" ] && systemctl enable "$(basename "$f")" 2>/dev/null || true
 done
+# Disable conflict docker services
+systemctl disable postgresql 2>/dev/null || true
+systemctl disable redis-server 2>/dev/null || true
 echo "[OK] Services enabled"
 
 ### ─── 15. First-boot script (Docker + WordPress) ───────────────────────────
