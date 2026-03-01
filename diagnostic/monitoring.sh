@@ -38,13 +38,13 @@ sudo_count=$(grep "COMMAND" /var/log/sudo/sudo.log 2>/dev/null | wc -l)
 
 # Create a simple banner with a box around it
 print_banner() {
-    local text="$1"
-    local length=${#text}
-    local line=$(printf "%${length}s" | tr " " "#")
-    
-    echo "#$line#"
-    echo "# $text #"
-    echo "#$line#"
+	local text="$1"
+	local length=${#text}
+	local line=$(printf "%${length}s" | tr " " "#")
+
+	echo "#$line#"
+	echo "# $text #"
+	echo "#$line#"
 }
 
 # Build monitoring message
@@ -68,7 +68,7 @@ $(print_banner "SYSTEM MONITORING - $(hostname)")
 #Current User's Login: $(whoami)
 "
 
-# Display message in the current terminal 
+# Display message in the current terminal
 echo -e "$monitoring_message"
 
 # Also broadcast to all users with wall

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e  # Exit on any error
+set -e # Exit on any error
 
 # ── Locate the preseeded ISO (built by create_custom_iso.sh) ─────────────────
 SCRIPT_DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
@@ -8,9 +8,9 @@ cd "$SCRIPT_DIR"
 
 PRESEED_ISO=$(ls -1 debian-*-amd64-*preseed.iso 2>/dev/null | head -n1)
 if [ -z "$PRESEED_ISO" ]; then
-    echo "Error: No preseeded ISO found in $SCRIPT_DIR"
-    echo "Run 'make gen_iso' first."
-    exit 1
+	echo "Error: No preseeded ISO found in $SCRIPT_DIR"
+	echo "Run 'make gen_iso' first."
+	exit 1
 fi
 
 # Variables
@@ -18,7 +18,7 @@ VM_NAME="debian"
 VM_PATH="$(pwd)/disk_images"
 ISO_PATH="$(pwd)/$PRESEED_ISO"
 VM_DISK_PATH="$VM_PATH/$VM_NAME/$VM_NAME.vdi"
-VM_DISK_SIZE=32000  # 32GB in MB
+VM_DISK_SIZE=32000 # 32GB in MB
 
 # ── Smart VM sizing algorithm ────────────────────────────────────────────────
 # Detects host hardware and allocates resources proportionally.
@@ -28,44 +28,44 @@ VM_DISK_SIZE=32000  # 32GB in MB
 #   - VRAM: 128 MB (server, no GUI in guest)
 # This keeps the host responsive while giving the VM enough power.
 auto_size_vm() {
-    local host_ram_mb host_cpus
+	local host_ram_mb host_cpus
 
-    # Detect host RAM (MB)
-    if [ -f /proc/meminfo ]; then
-        host_ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
-    elif command -v sysctl >/dev/null 2>&1; then
-        host_ram_mb=$(( $(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024 ))
-    fi
-    : "${host_ram_mb:=8192}"
+	# Detect host RAM (MB)
+	if [ -f /proc/meminfo ]; then
+		host_ram_mb=$(awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+	elif command -v sysctl >/dev/null 2>&1; then
+		host_ram_mb=$(($(sysctl -n hw.memsize 2>/dev/null || echo 0) / 1024 / 1024))
+	fi
+	: "${host_ram_mb:=8192}"
 
-    # Detect host CPU cores
-    if command -v nproc >/dev/null 2>&1; then
-        host_cpus=$(nproc)
-    elif [ -f /proc/cpuinfo ]; then
-        host_cpus=$(grep -c ^processor /proc/cpuinfo)
-    elif command -v sysctl >/dev/null 2>&1; then
-        host_cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
-    fi
-    : "${host_cpus:=4}"
+	# Detect host CPU cores
+	if command -v nproc >/dev/null 2>&1; then
+		host_cpus=$(nproc)
+	elif [ -f /proc/cpuinfo ]; then
+		host_cpus=$(grep -c ^processor /proc/cpuinfo)
+	elif command -v sysctl >/dev/null 2>&1; then
+		host_cpus=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
+	fi
+	: "${host_cpus:=4}"
 
-    # Allocate 25% RAM, clamp [2048, 8192]
-    VM_MEMORY=$(( host_ram_mb / 4 ))
-    [ "$VM_MEMORY" -lt 2048 ] && VM_MEMORY=2048
-    [ "$VM_MEMORY" -gt 8192 ] && VM_MEMORY=8192
+	# Allocate 25% RAM, clamp [2048, 8192]
+	VM_MEMORY=$((host_ram_mb / 4))
+	[ "$VM_MEMORY" -lt 2048 ] && VM_MEMORY=2048
+	[ "$VM_MEMORY" -gt 8192 ] && VM_MEMORY=8192
 
-    # Allocate 50% CPUs, clamp [2, 8]
-    VM_CPUS=$(( host_cpus / 2 ))
-    [ "$VM_CPUS" -lt 2 ] && VM_CPUS=2
-    [ "$VM_CPUS" -gt 8 ] && VM_CPUS=8
+	# Allocate 50% CPUs, clamp [2, 8]
+	VM_CPUS=$((host_cpus / 2))
+	[ "$VM_CPUS" -lt 2 ] && VM_CPUS=2
+	[ "$VM_CPUS" -gt 8 ] && VM_CPUS=8
 
-    VM_VRAM=128
+	VM_VRAM=128
 
-    echo "╔══════════════════════════════════════════════╗"
-    echo "║  Smart VM Sizing (host-adaptive)             ║"
-    echo "╠══════════════════════════════════════════════╣"
-    printf "║  Host:  %5d MB RAM  /  %2d cores            ║\n" "$host_ram_mb" "$host_cpus"
-    printf "║  VM:    %5d MB RAM  /  %2d cores  (25%%/50%%) ║\n" "$VM_MEMORY" "$VM_CPUS"
-    echo "╚══════════════════════════════════════════════╝"
+	echo "╔══════════════════════════════════════════════╗"
+	echo "║  Smart VM Sizing (host-adaptive)             ║"
+	echo "╠══════════════════════════════════════════════╣"
+	printf "║  Host:  %5d MB RAM  /  %2d cores            ║\n" "$host_ram_mb" "$host_cpus"
+	printf "║  VM:    %5d MB RAM  /  %2d cores  (25%%/50%%) ║\n" "$VM_MEMORY" "$VM_CPUS"
+	echo "╚══════════════════════════════════════════════╝"
 }
 
 auto_size_vm
@@ -85,28 +85,28 @@ BACKEND_PORT=3000
 # ── Dynamic port allocation (find free host ports) ───────────────────────────
 # Check if a host port is available (no sudo required)
 is_port_free() {
-    local port="$1"
-    if (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
-        return 1  # port is taken
-    fi
-    return 0  # port is free
+	local port="$1"
+	if (ss -tln 2>/dev/null || netstat -tln 2>/dev/null) | grep -qE "(0\.0\.0\.0|\*|\[::\]):${port}\b"; then
+		return 1 # port is taken
+	fi
+	return 0 # port is free
 }
 
 # Find a free port starting from a preferred one, incrementing until one works
 find_free_port() {
-    local port="$1"
-    local max_tries=100
-    local i=0
-    while [ "$i" -lt "$max_tries" ]; do
-        if is_port_free "$port"; then
-            echo "$port"
-            return 0
-        fi
-        port=$((port + 1))
-        i=$((i + 1))
-    done
-    echo "Error: Could not find a free port starting from $1" >&2
-    return 1
+	local port="$1"
+	local max_tries=100
+	local i=0
+	while [ "$i" -lt "$max_tries" ]; do
+		if is_port_free "$port"; then
+			echo "$port"
+			return 0
+		fi
+		port=$((port + 1))
+		i=$((i + 1))
+	done
+	echo "Error: Could not find a free port starting from $1" >&2
+	return 1
 }
 
 # Resolve actual host ports (may differ from defaults if ports are taken)
@@ -124,10 +124,10 @@ mkdir -p "$VM_PATH/$VM_NAME"
 
 # Function to print headers
 print_header() {
-    echo ""
-    echo "==============================================="
-    echo "  $1"
-    echo "==============================================="
+	echo ""
+	echo "==============================================="
+	echo "  $1"
+	echo "==============================================="
 }
 
 print_header "Setting up Born2beRoot VirtualBox VM"
@@ -140,13 +140,13 @@ VBoxManage list vms
 # Fixed VM existence check with improved error handling
 VM_EXISTS=""
 if VBoxManage list vms | grep -q "\"$VM_NAME\""; then
-    VM_EXISTS="yes"
-    print_header "VM already exists - Keeping existing configuration"
-    echo "If this is incorrect, you can remove the VM with:"
-    echo "VBoxManage unregistervm \"$VM_NAME\" --delete"
-    exit 0
+	VM_EXISTS="yes"
+	print_header "VM already exists - Keeping existing configuration"
+	echo "If this is incorrect, you can remove the VM with:"
+	echo "VBoxManage unregistervm \"$VM_NAME\" --delete"
+	exit 0
 else
-    print_header "Creating new VM - No existing VM found"
+	print_header "Creating new VM - No existing VM found"
 fi
 
 echo "Using preseeded ISO: $PRESEED_ISO"
@@ -155,21 +155,23 @@ echo "ISO path: $ISO_PATH"
 # Create the VM
 print_header "Creating VirtualBox VM"
 VBoxManage createvm --name "$VM_NAME" --ostype "Debian_64" --basefolder "$VM_PATH" --register || {
-    echo "Failed to create VM"; exit 1;
+	echo "Failed to create VM"
+	exit 1
 }
 
 # Set memory, CPU, and display
 print_header "Configuring VM hardware settings"
 VBoxManage modifyvm "$VM_NAME" \
-    --memory "$VM_MEMORY" \
-    --vram "$VM_VRAM" \
-    --cpus "$VM_CPUS" \
-    --acpi on \
-    --ioapic on \
-    --rtcuseutc on \
-    --clipboard bidirectional \
-    --draganddrop bidirectional || {
-    echo "Failed to set VM hardware"; exit 1;
+	--memory "$VM_MEMORY" \
+	--vram "$VM_VRAM" \
+	--cpus "$VM_CPUS" \
+	--acpi on \
+	--ioapic on \
+	--rtcuseutc on \
+	--clipboard bidirectional \
+	--draganddrop bidirectional || {
+	echo "Failed to set VM hardware"
+	exit 1
 }
 
 # ── Fix git clone / large download hanging at ~44% ──────────────────────────
@@ -188,7 +190,8 @@ VBoxManage modifyvm "$VM_NAME" --nat-dns-host-resolver1 on || true
 # Set network - NAT with port forwarding
 print_header "Configuring network and port forwarding"
 VBoxManage modifyvm "$VM_NAME" --nic1 nat || {
-    echo "Failed to set VM network"; exit 1;
+	echo "Failed to set VM network"
+	exit 1
 }
 
 # Set up NAT port forwarding (using dynamically resolved free host ports)
@@ -202,59 +205,73 @@ echo "  Frontend: host:${HOST_FRONTEND_PORT} -> guest:${FRONTEND_PORT}"
 echo "  Backend:  host:${HOST_BACKEND_PORT} -> guest:${BACKEND_PORT}"
 
 VBoxManage modifyvm "$VM_NAME" --natpf1 "ssh,tcp,,${HOST_SSH_PORT},,${SSH_PORT}" || {
-    echo "Failed to set up NAT port forwarding for SSH"; exit 1;
+	echo "Failed to set up NAT port forwarding for SSH"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "http,tcp,,${HOST_HTTP_PORT},,${HTTP_PORT}" || {
-    echo "Failed to set up NAT port forwarding for HTTP"; exit 1;
+	echo "Failed to set up NAT port forwarding for HTTP"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "https,tcp,,${HOST_HTTPS_PORT},,${HTTPS_PORT}" || {
-    echo "Failed to set up NAT port forwarding for HTTPS"; exit 1;
+	echo "Failed to set up NAT port forwarding for HTTPS"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "docker,tcp,,${HOST_DOCKER_PORT},,${DOCKER_REGISTRY_PORT}" || {
-    echo "Failed to set up NAT port forwarding for Docker Registry"; exit 1;
+	echo "Failed to set up NAT port forwarding for Docker Registry"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "mariadb,tcp,,${HOST_MARIADB_PORT},,${MARIADB_PORT}" || {
-    echo "Failed to set up NAT port forwarding for MariaDB"; exit 1;
+	echo "Failed to set up NAT port forwarding for MariaDB"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "redis,tcp,,${HOST_REDIS_PORT},,${REDIS_PORT}" || {
-    echo "Failed to set up NAT port forwarding for Redis"; exit 1;
+	echo "Failed to set up NAT port forwarding for Redis"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "frontend,tcp,,${HOST_FRONTEND_PORT},,${FRONTEND_PORT}" || {
-    echo "Failed to set up NAT port forwarding for Frontend"; exit 1;
+	echo "Failed to set up NAT port forwarding for Frontend"
+	exit 1
 }
 VBoxManage modifyvm "$VM_NAME" --natpf1 "backend,tcp,,${HOST_BACKEND_PORT},,${BACKEND_PORT}" || {
-    echo "Failed to set up NAT port forwarding for Backend"; exit 1;
+	echo "Failed to set up NAT port forwarding for Backend"
+	exit 1
 }
 # Create disk if it does not exist
 if [ ! -f "$VM_DISK_PATH" ]; then
-    print_header "Creating virtual disk"
-    VBoxManage createmedium disk --filename "$VM_DISK_PATH" --size "$VM_DISK_SIZE" || {
-        echo "Failed to create virtual disk"; exit 1;
-    }
+	print_header "Creating virtual disk"
+	VBoxManage createmedium disk --filename "$VM_DISK_PATH" --size "$VM_DISK_SIZE" || {
+		echo "Failed to create virtual disk"
+		exit 1
+	}
 else
-    print_header "Virtual disk already exists - Keeping existing disk"
+	print_header "Virtual disk already exists - Keeping existing disk"
 fi
 
 # Add controllers and attach devices
 print_header "Setting up storage controllers"
 VBoxManage storagectl "$VM_NAME" --name "SATA Controller" --add sata --controller IntelAHCI || {
-    echo "Failed to add SATA controller"; exit 1;
+	echo "Failed to add SATA controller"
+	exit 1
 }
 VBoxManage storageattach "$VM_NAME" --storagectl "SATA Controller" --port 0 --device 0 --type hdd --medium "$VM_DISK_PATH" || {
-    echo "Failed to attach virtual disk"; exit 1;
+	echo "Failed to attach virtual disk"
+	exit 1
 }
 
 VBoxManage storagectl "$VM_NAME" --name "IDE Controller" --add ide || {
-    echo "Failed to add IDE controller"; exit 1;
+	echo "Failed to add IDE controller"
+	exit 1
 }
 VBoxManage storageattach "$VM_NAME" --storagectl "IDE Controller" --port 0 --device 0 --type dvddrive --medium "$ISO_PATH" || {
-    echo "Failed to attach ISO"; exit 1;
+	echo "Failed to attach ISO"
+	exit 1
 }
 
 # Set boot order (DVD first for installation, then disk)
 print_header "Setting boot order"
 VBoxManage modifyvm "$VM_NAME" --boot1 dvd --boot2 disk --boot3 none --boot4 none || {
-    echo "Failed to set boot order"; exit 1;
+	echo "Failed to set boot order"
+	exit 1
 }
 
 # Enable nested virtualization (optional, for advanced use)

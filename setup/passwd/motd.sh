@@ -45,7 +45,7 @@ echo -e "• System Monitoring (10-minute intervals)"
 
 # Compliance Section
 echo -e "\n${YELLOW}${BOLD}BORN2BEROOT COMPLIANCE:${RESET}"
-echo -e "• LVM Partitioning: ✓" 
+echo -e "• LVM Partitioning: ✓"
 echo -e "• AppArmor Enabled: ✓"
 echo -e "• SSH Configuration: ✓"
 echo -e "• UFW Firewall Rules: ✓"

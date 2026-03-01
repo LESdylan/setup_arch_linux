@@ -6,17 +6,17 @@ set -e
 # Born2beRoot Configuration Variables for 42 School
 VM_NAME="Born2beRoot"
 VM_OS_TYPE="Debian_64"
-VM_MEMORY="2048"  # 2GB RAM as requested
-VM_CPUS="1"       # Single CPU is sufficient for the project
-VM_DISK_SIZE="32768"  # 32GB as requested
+VM_MEMORY="2048"     # 2GB RAM as requested
+VM_CPUS="1"          # Single CPU is sufficient for the project
+VM_DISK_SIZE="32768" # 32GB as requested
 VM_NETWORK_TYPE="nat"
 VM_BASE_PATH="/sgoinfre/students/dlesieur/dlesieur42/m_virtual_machine"
 ISO_PATH="$VM_BASE_PATH/debian-12.10.0-amd64-netinst.iso"
 VM_DISK_PATH="$VM_BASE_PATH/$VM_NAME/$VM_NAME.vdi"
-SSH_PORT="4242"   # 42 project requires SSH on port 4242
+SSH_PORT="4242" # 42 project requires SSH on port 4242
 HTTP__HOST_PORT="8080"
 HTTP_GUEST_PORT="80"
-HOSTNAME="dlesieur"  # Your login as hostname (set during OS installation)
+HOSTNAME="dlesieur" # Your login as hostname (set during OS installation)
 
 echo "Creating Born2beRoot VM for 42 School project..."
 
@@ -25,14 +25,14 @@ mkdir -p "$VM_BASE_PATH/$VM_NAME"
 
 # Check if VM already exists
 if VBoxManage showvminfo "$VM_NAME" &>/dev/null; then
-    read -p "VM '$VM_NAME' already exists. Delete and recreate? (y/n): " confirm
-    if [[ $confirm == [yY] ]]; then
-        echo "Removing existing VM..."
-        VBoxManage unregistervm "$VM_NAME" --delete
-    else
-        echo "Exiting without changes."
-        exit 0
-    fi
+	read -p "VM '$VM_NAME' already exists. Delete and recreate? (y/n): " confirm
+	if [[ $confirm == [yY] ]]; then
+		echo "Removing existing VM..."
+		VBoxManage unregistervm "$VM_NAME" --delete
+	else
+		echo "Exiting without changes."
+		exit 0
+	fi
 fi
 
 # Create the VM
@@ -68,7 +68,7 @@ echo "VM setup complete! Starting VM for installation..."
 VBoxManage startvm "$VM_NAME" --type gui
 
 # Print installation instructions
-cat << EOF
+cat <<EOF
 
 ====== BORN2BEROOT INSTALLATION GUIDE ======
 

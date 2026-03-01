@@ -9,10 +9,10 @@ VBoxManage controlvm debian addencpassword "tempencrypt123" vm_pass.txt
 PASS_RESULT=$?
 
 if [ $PASS_RESULT -eq 0 ]; then
-    echo "[$(date)] ✓ Password provided successfully!"
+	echo "[$(date)] ✓ Password provided successfully!"
 else
-    echo "[$(date)] ✗ ERROR: Failed to provide password (exit code: $PASS_RESULT)"
-    exit 1
+	echo "[$(date)] ✗ ERROR: Failed to provide password (exit code: $PASS_RESULT)"
+	exit 1
 fi
 
 echo "[$(date)] Waiting for VM to fully boot (30 seconds)..."

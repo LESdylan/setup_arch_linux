@@ -10,27 +10,27 @@ NC='\033[0m' # No Color
 
 # Log function
 log() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+	echo -e "${GREEN}[INFO]${NC} $1"
 }
 
 warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+	echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
+	echo -e "${RED}[ERROR]${NC} $1"
+	exit 1
 }
 
 # nvm is per-user and should not be installed as root
 if [[ "${EUID}" -eq 0 ]]; then
-    error "Run this script as a normal user (not root/sudo)"
+	error "Run this script as a normal user (not root/sudo)"
 fi
 
 # Check if Node.js toolchain is already installed
 if command -v node &>/dev/null && command -v npm &>/dev/null && command -v pnpm &>/dev/null; then
-    log "Node.js, npm, and pnpm are already installed"
-    exit 0
+	log "Node.js, npm, and pnpm are already installed"
+	exit 0
 fi
 
 # Install nvm + Node.js
@@ -50,7 +50,7 @@ nvm use 22
 
 # Check if Node.js and NPM were installed successfully
 if ! command -v node &>/dev/null || ! command -v npm &>/dev/null; then
-    error "Node.js or NPM installation failed"
+	error "Node.js or NPM installation failed"
 fi
 
 # Installing PNPM via Corepack
@@ -60,7 +60,7 @@ corepack prepare pnpm@latest --activate
 
 # Check if PNPM was installed successfully
 if ! command -v pnpm &>/dev/null; then
-    error "PNPM installation failed"
+	error "PNPM installation failed"
 fi
 
 # Add information about removal

@@ -48,10 +48,10 @@ echo "- Got LVM status"
 
 # Active connections - using ss instead of netstat
 if command -v netstat >/dev/null 2>&1; then
-    tcp_connections=$(netstat -ant | grep ESTABLISHED | wc -l)
+	tcp_connections=$(netstat -ant | grep ESTABLISHED | wc -l)
 else
-    # Use ss if netstat is not available
-    tcp_connections=$(ss -t state established | wc -l)
+	# Use ss if netstat is not available
+	tcp_connections=$(ss -t state established | wc -l)
 fi
 echo "- Got TCP connection info"
 
@@ -62,19 +62,19 @@ echo "- Got user log info"
 # Network info
 ip_addr=$(hostname -I | awk '{print $1}')
 if command -v ip >/dev/null 2>&1; then
-    mac_addr=$(ip link show | grep "link/ether" | head -n1 | awk '{print $2}')
+	mac_addr=$(ip link show | grep "link/ether" | head -n1 | awk '{print $2}')
 else
-    mac_addr="N/A (ip command not found)"
+	mac_addr="N/A (ip command not found)"
 fi
 echo "- Got network info"
 
 # Sudo command count - adjust based on your system's sudo log location
 if [ -f "/var/log/sudo/sudo.log" ]; then
-    sudo_count=$(grep COMMAND /var/log/sudo/sudo.log | wc -l)
+	sudo_count=$(grep COMMAND /var/log/sudo/sudo.log | wc -l)
 elif [ -f "/var/log/auth.log" ]; then
-    sudo_count=$(grep "sudo:" /var/log/auth.log | grep COMMAND | wc -l)
+	sudo_count=$(grep "sudo:" /var/log/auth.log | grep COMMAND | wc -l)
 else
-    sudo_count=$(journalctl _COMM=sudo 2>/dev/null | grep COMMAND | wc -l)
+	sudo_count=$(journalctl _COMM=sudo 2>/dev/null | grep COMMAND | wc -l)
 fi
 echo "- Got sudo command count"
 
@@ -98,10 +98,10 @@ echo -e "${GREEN}$monitoring_message${NC}"
 
 # Also try to send via wall if available
 if command -v wall >/dev/null 2>&1; then
-    echo "- Broadcasting via wall command..."
-    echo "$monitoring_message" | wall
+	echo "- Broadcasting via wall command..."
+	echo "$monitoring_message" | wall
 else
-    echo "Warning: 'wall' command not found, message only displayed locally"
+	echo "Warning: 'wall' command not found, message only displayed locally"
 fi
 
 echo "Monitoring script completed."
