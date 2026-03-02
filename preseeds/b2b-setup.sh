@@ -61,6 +61,7 @@ echo "[OK] Web stack packages"
 # Developer essentials (all in base Debian repos)
 $APT git git-lfs build-essential gcc g++ make cmake \
 	python3 python3-pip python3-venv \
+	nodejs npm sqlite3 \
 	curl wget net-tools vim nano \
 	man-db manpages-dev \
 	htop tree tmux screen bash-completion \

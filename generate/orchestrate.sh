@@ -632,13 +632,18 @@ s['remote.SSH.useExecServer'] = False
 s['remote.SSH.connectTimeout'] = 60
 s['remote.SSH.showLoginTerminal'] = True
 
-# Suppress TypeScript/ESLint noise for containerized projects (Alpine Docker)
-# The actual node_modules live inside Docker containers, not on the VM filesystem.
-# Without these, VS Code floods the editor with false-positive errors.
-s.setdefault('typescript.validate.enable', True)
+# Suppress TypeScript/ESLint/CSS noise for containerized projects (Alpine Docker).
+# Source code lives on the VM, but node_modules & build output live ONLY inside
+# Docker containers → VS Code can't resolve imports → floods false-positive errors.
+# To re-enable per-workspace: create .vscode/settings.json with the overrides.
+s['typescript.validate.enable'] = False
+s['javascript.validate.enable'] = False
 s['typescript.tsserver.experimental.enableProjectDiagnostics'] = False
-s['eslint.workingDirectories'] = [{'mode': 'auto'}]
 s['typescript.disableAutomaticTypeAcquisition'] = True
+s['eslint.enable'] = False
+s['css.validate'] = False
+s['scss.validate'] = False
+s['less.validate'] = False
 
 with open('$vscode_settings', 'w') as f:
     json.dump(s, f, indent=4)
