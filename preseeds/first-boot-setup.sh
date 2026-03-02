@@ -447,16 +447,25 @@ sysctl --system > /dev/null 2>&1 || true
 echo "[OK] NAT keepalive + sshd-watchdog + SSH stability ensured"
 
 ### ─── 4. Third-party tools retry ────────────────────────────────────────────
-# b2b-setup.sh attempts these in chroot with 60s timeouts.
-# Here we retry any that failed, now with full network + systemd.
+# b2b-setup.sh installs base dev tools in chroot but skips nodejs/npm
+# (npm's dpkg triggers hang in chroot and block all subsequent configuration).
+# Install nodejs/npm here with full systemd + network.
 echo "--- Ensuring third-party dev tools are installed ---"
 
+# Node.js + npm (not installed in chroot — triggers hang)
+if ! command -v node > /dev/null 2>&1; then
+	apt-get install -y -qq nodejs npm 2>/dev/null || true
+	echo "[OK] nodejs + npm installed"
+else
+	echo "[SKIP] nodejs already present"
+fi
+
 # NPM globals (skip if already installed)
-if ! command -v eslint > /dev/null 2>&1; then
+if command -v npm > /dev/null 2>&1 && ! command -v eslint > /dev/null 2>&1; then
 	npm install -g eslint prettier snyk 2>/dev/null || true
 	echo "[OK] NPM globals installed"
 else
-	echo "[SKIP] NPM globals already present"
+	echo "[SKIP] NPM globals already present or npm not available"
 fi
 
 # Python tools via pipx

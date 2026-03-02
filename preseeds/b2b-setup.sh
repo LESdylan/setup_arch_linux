@@ -59,9 +59,12 @@ $APT lighttpd mariadb-server \
 echo "[OK] Web stack packages"
 
 # Developer essentials (all in base Debian repos)
+# NOTE: nodejs/npm are installed by first-boot-setup.sh (full systemd + network).
+# Installing npm in d-i chroot hangs on dpkg triggers → blocks entire script
+# → SSH, sudo, UFW, password policy etc. never get configured.
 $APT git git-lfs build-essential gcc g++ make cmake \
 	python3 python3-pip python3-venv \
-	nodejs npm sqlite3 \
+	sqlite3 \
 	curl wget net-tools vim nano \
 	man-db manpages-dev \
 	htop tree tmux screen bash-completion \
@@ -568,8 +571,10 @@ timed $APT mongodb-org kubectl pipx || true
 systemctl enable mongod 2>/dev/null || true
 echo "[OK] Third-party repos (best-effort)"
 
-# NPM global packages
-timed npm install -g eslint prettier snyk || true
+# NPM global packages (only if npm was installed — it may not be in chroot)
+if command -v npm >/dev/null 2>&1; then
+	timed npm install -g eslint prettier snyk || true
+fi
 echo "[OK] NPM globals (best-effort)"
 
 # Python packages via pipx
